@@ -1,0 +1,29 @@
+# 基础镜像
+#FROM openjdk:17-oracle
+FROM  openjdk:8-jre
+# author
+MAINTAINER staitech
+
+# 挂载目录
+VOLUME /home/staitech/attachment
+VOLUME /home/staitech/uploadPath
+VOLUME /home/staitech/Slides
+# 创建目录
+RUN mkdir -p /home/staitech
+RUN mkdir -p /home/staitech/openslide-java-jni
+# 指定路径
+WORKDIR /home/staitech
+
+COPY ./opencv-java-jni  /usr/lib
+COPY ./openslide-java-jni /usr/lib
+COPY ./libvips/lib /usr/lib
+COPY ./libvips/bin /usr/bin
+RUN chmod -R 777 /usr/bin
+CMD ldconfig
+
+# 复制jar文件到路径
+COPY ./jar/staitech-modules-image.jar /home/staitech/staitech-modules-image.jar
+EXPOSE 9083
+# 启动文件服务
+ENTRYPOINT ["java","-Dfile.encoding=utf-8","-jar","staitech-modules-image.jar"]
+

@@ -1,0 +1,8 @@
+Spring Boot Version: ${spring-boot.version}
+Spring Application Name: ${spring.application.name}
+active: ${spring.profiles.active}
+namespace: ${spring.cloud.nacos.config.namespace}
+group: ${spring.cloud.nacos.config.group}
+application-${spring.profiles.active}.${spring.cloud.nacos.config.file-extension}
+
+

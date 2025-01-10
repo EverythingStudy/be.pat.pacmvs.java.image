@@ -1,0 +1,38 @@
+# Tomcat
+server:
+#  port: 9083
+  port: 8088
+# Spring
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 500MB
+      max-request-size: 500MB
+  application:
+    # 应用名称
+    name: staitech-image
+  profiles:
+    # 环境配置
+    active: @activatedProperties@
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册地址
+        server-addr: @serverAddr@
+        # nacos namespace
+        namespace: @nacosNamespace@
+        # nacos group
+        group: @nacosGroup@
+      config:
+        # 配置中心地址
+        server-addr: @serverAddr@
+        # 配置文件格式
+        file-extension: yml
+        # nacos namespace
+        namespace: @nacosNamespace@
+        # nacos group
+        group: @nacosGroup@
+        # 共享配置
+        shared-configs:
+          - application-${spring.profiles.active}.${spring.cloud.nacos.config.file-extension}
