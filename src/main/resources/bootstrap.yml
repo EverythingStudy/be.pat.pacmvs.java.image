@@ -1,7 +1,7 @@
 # Tomcat
 server:
 #  port: 9083
-  port: 8088
+  port: 9898
 # Spring
 spring:
   servlet:
