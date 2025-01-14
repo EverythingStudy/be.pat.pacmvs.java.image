@@ -271,7 +271,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             if (image.getFormat().equals(ImageConstant.SVS) || image.getFormat().equals(ImageConstant.NDPI)) {
                 writeRseolution(os, image);
             }
-
+            imageService.saveOrUpdate(image);
             // 总层数小于2为不可用 不可用原因共三种，2解析失败（不能获得缩略图）
             if (image.getLevelCount() < MIN_LEVEL_COUNT) {
                 image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
