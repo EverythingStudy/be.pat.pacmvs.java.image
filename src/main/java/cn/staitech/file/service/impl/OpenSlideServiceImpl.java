@@ -439,20 +439,26 @@ public class OpenSlideServiceImpl implements OpenSlideService {
      * @throws Exception
      */
     @Override
-    public void asynSaveBatch(FileInsertVO vo) throws Exception {
+    public void asynSaveBatch(FileInsertVO vo) {
         if (imageMap.get(vo.getTopicName())==null){
             imageMap.put(vo.getTopicName(),vo);
             int processors = Runtime.getRuntime().availableProcessors();
             ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(processors * 2 + 1, processors * 4, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100000));
             String[] paths = vo.getFileList();
             if (paths.length > 0) {
-                Topic topic = imageService.getTopic(vo.getTopicName(),vo.getBizType());
-                CountDownLatch countDownLatch = new CountDownLatch(paths.length);
-                for (String path : paths) {
-                    threadPoolExecutor.submit(new ImageTask(countDownLatch, path, topic));
+                try {
+                    Topic topic = imageService.getTopic(vo.getTopicName(),vo.getBizType());
+                    CountDownLatch countDownLatch = new CountDownLatch(paths.length);
+                    for (String path : paths) {
+                        threadPoolExecutor.submit(new ImageTask(countDownLatch, path, topic));
+                    }
+                    countDownLatch.await();
+                } catch (InterruptedException e) {
+                    log.error("服务器读取切片异常：[{}]", e.getMessage());
+                }finally {
+                    imageMap.remove(vo.getTopicName());
                 }
-                countDownLatch.await();
-                imageMap.remove(vo.getTopicName());
+
             }
             threadPoolExecutor.shutdown();
         }
