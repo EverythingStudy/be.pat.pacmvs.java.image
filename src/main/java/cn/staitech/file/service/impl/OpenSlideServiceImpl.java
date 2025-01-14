@@ -279,6 +279,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             } else {
                 //TODO 是否需要算法清晰度校验    type:1 原始切片 2：预测切片
                 if (check && image.getFormat().equals(DataConstants.SVS) && image.getBizType()==1) {
+                    log.info("算法校验开始,ImageId:[{}],image:[{}]", image.getImageId(),image);
                     //通知算法校验
                     frService.verification(image);
                 }else{
