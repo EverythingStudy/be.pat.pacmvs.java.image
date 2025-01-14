@@ -475,11 +475,9 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 Long loginUser = SecurityUtils.getUserId();
                 File file = new File(path);
                 String imageName = file.getName();
-                QueryWrapper<Image> imageQueryWrapper = Wrappers.query();
-                imageQueryWrapper.eq("image_name", imageName);
-                Image src = imageMapper.selectOne(imageQueryWrapper);
-                if (src != null) {
-                    log.warn("服务器选片异常:[{}]该文件已经存在", imageName);
+                Integer count = imageMapper.selectCount(Wrappers.<Image>lambdaQuery().eq(Image::getImageName, imageName).eq(Image::getTopicName, topic.getTopicName()));
+                if (count > 0) {
+                    log.warn("服务器选片异常:[{}]该文件已经存在,topicName:[{}]", imageName,topic.getTopicName());
                     countDownLatch.countDown();
                     return;
                 }
