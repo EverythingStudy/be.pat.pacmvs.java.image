@@ -1,9 +1,5 @@
 package cn.staitech.file.constant;
 
-/**
- * @author 张争
- * @date 2022/9/29 11:32
- */
 
 public class ImageConstant {
     public static final String SVS = "svs";

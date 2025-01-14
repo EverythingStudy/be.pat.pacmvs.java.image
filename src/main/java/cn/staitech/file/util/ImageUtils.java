@@ -1,6 +1,7 @@
 package cn.staitech.file.util;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 
 /**
  * @author wangf
@@ -65,6 +66,27 @@ public class ImageUtils {
         System.out.println("jpeg图片转tiff command = " + command);
         Process exec = Runtime.getRuntime().exec(command);
         exec.waitFor();
+    }
+
+    public static String getFourNumber(Long number) {
+        NumberFormat formatter = NumberFormat.getNumberInstance();
+        formatter.setMinimumIntegerDigits(3);
+        formatter.setGroupingUsed(false);
+        // return "C" + formatter.format(number) + File.separator + "Slides";
+        return "C" + formatter.format(number) + "/Slides";
+    }
+
+    /**
+     * 数字格式化
+     *
+     * @param number
+     * @return C012
+     */
+    public static String getFourNumberNoSlide(Long number) {
+        NumberFormat formatter = NumberFormat.getNumberInstance();
+        formatter.setMinimumIntegerDigits(3);
+        formatter.setGroupingUsed(false);
+        return "C" + formatter.format(number);
     }
 
 }

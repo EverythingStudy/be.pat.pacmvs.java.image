@@ -4,7 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.staitech.common.core.domain.R;
 import cn.staitech.common.core.utils.uuid.IdUtils;
 import cn.staitech.common.security.utils.SecurityUtils;
-import cn.staitech.file.DataConstants;
+import cn.staitech.file.constants.DataConstants;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.util.FileUploadUtils;
@@ -177,13 +177,14 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         if (!imageDir.exists() && !imageDir.isDirectory()) {
             imageDir.mkdirs();
         }
-
         String filePathStr = folderName + "/" + imageId + "/0.jpg";
-
-        String thumbPath = "/file/statics/thumbnail/" + filePathStr;
-        String macroPath = "/file/statics/macro/" + filePathStr;
-        String labelPath = "/file/statics/label/" + filePathStr;
-        String cacheURL = localFilePath + "/cacheThumbnail/" + filePathStr;
+        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/thumbnail/" + filePathStr;
+        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/macro/" + filePathStr;
+        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/label/" + filePathStr;
+        String cacheURL = localFilePath+ ImageUtils.getFourNumber(image.getOrganizationId()) + "/cacheThumbnail/" + filePathStr;
+        if (image.getBizType() == 2) {
+            cacheURL = "/home/pat_saas/" + ImageUtils.getFourNumberNoSlide(image.getOrganizationId()) + "/Upload/" + image.getTopicName() + "/";
+        }
         image.setThumbUrl(thumbPath);
         image.setMacroUrl(macroPath);
         image.setLabelUrl(labelPath);

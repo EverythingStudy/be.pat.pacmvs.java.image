@@ -1,7 +1,7 @@
 package cn.staitech.file.service.impl;
 
 import cn.hutool.json.JSONUtil;
-import cn.staitech.file.DataConstants;
+import cn.staitech.file.constants.DataConstants;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.feign.PythonService;
 import cn.staitech.file.feign.StartRecognition;

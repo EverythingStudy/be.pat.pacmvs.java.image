@@ -1,4 +1,4 @@
-package cn.staitech.file;
+package cn.staitech.file.constants;
 
 /**
  * @author mugw

@@ -6,7 +6,7 @@ import cn.hutool.core.lang.Snowflake;
 import cn.hutool.core.util.IdUtil;
 import cn.staitech.common.core.utils.uuid.IdUtils;
 import cn.staitech.common.security.utils.SecurityUtils;
-import cn.staitech.file.DataConstants;
+import cn.staitech.file.constants.DataConstants;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.domain.Topic;
@@ -510,10 +510,13 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 // 插入数据 - 生成文件目录、文件名 start
                 String folderName = DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN);
                 String filePathStr = folderName + "/" + snowflake.nextIdStr() + "/0.jpg";
-                String thumbPath = ImageConstant.THUMB_BASE_DIR + "/thumbnail/" + filePathStr;
-                String macroPath = ImageConstant.THUMB_BASE_DIR + "/macro/" + filePathStr;
-                String labelPath = ImageConstant.THUMB_BASE_DIR + "/label/" + filePathStr;
-                String cacheURL = localFilePath + "/cacheThumbnail/" + filePathStr;
+                String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/thumbnail/" + filePathStr;
+                String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/macro/" + filePathStr;
+                String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/label/" + filePathStr;
+                String cacheURL = localFilePath+ ImageUtils.getFourNumber(image.getOrganizationId()) + "/cacheThumbnail/" + filePathStr;
+                if (image.getBizType() == 2) {
+                    cacheURL = "/home/pat_saas/" + ImageUtils.getFourNumberNoSlide(image.getOrganizationId()) + "/Upload/" + image.getTopicName() + "/";
+                }
                 image.setThumbUrl(thumbPath);
                 image.setMacroUrl(macroPath);
                 image.setLabelUrl(labelPath);
