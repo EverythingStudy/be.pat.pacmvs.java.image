@@ -223,7 +223,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         if (ImageConstant.IMAGE_PROCESS_PARSE_FAIL.equals(image.getProcessFlag())) {
             processThumbInstance(inFile, image);
         }
-        imageService.save(image);
+        imageService.saveOrUpdate(image);
     }
 
     private Image processThumbInstance(File inFile, Image image) {
