@@ -1,7 +1,7 @@
 package cn.staitech.file.service.impl;
 
 import cn.hutool.json.JSONUtil;
-import cn.staitech.file.constants.DataConstants;
+import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.feign.PythonService;
 import cn.staitech.file.feign.StartRecognition;
@@ -26,7 +26,7 @@ public class FrServiceImpl implements FrService {
 	public void verification(Image image) {
 		StartRecognition startRecognition = new StartRecognition();
 		BeanUtils.copyProperties(image, startRecognition);
-		startRecognition.setAlgorithm_name(DataConstants.ALGORITHM_MODEL_NAME);
+		startRecognition.setAlgorithm_name(ImageConstant.ALGORITHM_MODEL_NAME);
 		String number = geNumber(image.getOrganizationId());
 		startRecognition.setOrganizationName(number);
 		String reqData = JSONUtil.toJsonStr(startRecognition);

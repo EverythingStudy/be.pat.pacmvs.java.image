@@ -6,7 +6,6 @@ import cn.hutool.core.lang.Snowflake;
 import cn.hutool.core.util.IdUtil;
 import cn.staitech.common.core.utils.uuid.IdUtils;
 import cn.staitech.common.security.utils.SecurityUtils;
-import cn.staitech.file.constants.DataConstants;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.domain.Topic;
@@ -281,7 +280,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
             } else {
                 //TODO 是否需要算法清晰度校验    type:1 原始切片 2：预测切片
-                if (check && image.getFormat().equals(DataConstants.SVS) && image.getBizType()==1) {
+                if (check && image.getFormat().equals(ImageConstant.SVS) && image.getBizType()==1) {
                     log.info("算法校验开始,ImageId:[{}],image:[{}]", image.getImageId(),image);
                     //通知算法校验
                     frService.verification(image);
@@ -509,7 +508,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
                 image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
                 image.setImageCode(IdUtils.randomUUID());
-                image.setDelFlag(DataConstants.NOT_DELETED);
+                image.setDelFlag(ImageConstant.NOT_DELETED);
                 image.setTopicId(topic.getTopicId());
                 image.setTopicName(topic.getTopicName());
                 image.setSource(ImageConstant.IMAGE_SOURCE_SERVER);

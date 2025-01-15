@@ -36,4 +36,7 @@ public class ImageConstant {
     public static final String THUMB_BASE_DIR = "/file/statics";
 
 
+    //未删除
+    public static final String NOT_DELETED = "0";
+    public static final String ALGORITHM_MODEL_NAME  = "图片清晰度检验";
 }

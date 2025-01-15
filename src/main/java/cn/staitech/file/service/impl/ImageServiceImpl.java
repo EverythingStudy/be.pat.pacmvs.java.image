@@ -4,7 +4,6 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.staitech.common.core.domain.R;
 import cn.staitech.common.core.utils.uuid.IdUtils;
 import cn.staitech.common.security.utils.SecurityUtils;
-import cn.staitech.file.constants.DataConstants;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.util.FileUploadUtils;
@@ -118,7 +117,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             image.setCreateBy(userId);
             image.setSource(ImageConstant.IMAGE_SOURCE_UPLOAD);
             // 逻辑删除状态（0删除，1未删除）
-            image.setDelFlag(DataConstants.NOT_DELETED);
+            image.setDelFlag(ImageConstant.NOT_DELETED);
             // 去掉文件扩展名的文件名称
             image.setFileName(FileUploadUtils.getFileName(fileInformation.getImageName()));
             int insert = imageMapper.insert(image);
@@ -205,7 +204,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         /*List<Image> images = getBaseMapper().selectList(Wrappers.query(Image.builder().md5(in.getMd5()).imageName(in.getImageName())
                 .status(ImageConstant.IMAGE_STATUS_ENABLE).delFlag(DataConstants.NOT_DELETED).build()));*/
         List<Image> images = getBaseMapper().selectList(Wrappers.query(Image.builder().imageName(in.getImageName())
-                .delFlag(DataConstants.NOT_DELETED).build()));
+                .delFlag(ImageConstant.NOT_DELETED).build()));
         if (images.isEmpty()) {
             return true;
         }
