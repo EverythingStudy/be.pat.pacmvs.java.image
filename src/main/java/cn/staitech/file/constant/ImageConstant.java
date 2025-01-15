@@ -4,7 +4,7 @@ package cn.staitech.file.constant;
 public class ImageConstant {
     public static final String SVS = "svs";
     public static final String NDPI = "ndpi";
-
+    public static final String LSL = "ndpi";
     public static final String IMAGE_EXISTS = "该文件已经存在，请重新上传";
 
     public static final String DISALLOWED_EXTENSION = "上传的图像格式暂不支持";
