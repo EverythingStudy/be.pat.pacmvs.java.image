@@ -2,6 +2,7 @@ package cn.staitech.file.service;
 
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.vo.FileInsertVO;
+import com.google.common.cache.Cache;
 import org.openslide.OpenSlide;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
@@ -53,7 +54,7 @@ public interface OpenSlideService {
 
     void reparse(List<Long> imageIds) throws Exception;
 
-    Map<String, FileInsertVO> getImageMap() throws Exception;
+    Cache<String, Object> getCache() throws Exception;
 
 }
 

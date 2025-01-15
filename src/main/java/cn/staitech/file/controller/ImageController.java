@@ -38,7 +38,7 @@ public class ImageController {
     @PostMapping("/add")
     public R add(@Validated @RequestBody FileInsertVO vo) throws Exception {
 
-        if (openSlideService.getImageMap().get(vo.getTopicName())!=null){
+        if (openSlideService.getCache().getIfPresent(vo.getTopicName()) != null) {
             return R.fail(ImageConstant.SERVER_IMAGE_UPLOAD_FAILURE1);
         }
         vo.setBizType(1);
@@ -61,7 +61,7 @@ public class ImageController {
     @ApiOperation(value = "原始切片-选择切片-查询处理中的原始切片数据")
     @PostMapping(value = "/queryProcessUploadTopic")
     public R queryProcessUploadTopic() throws Exception {
-        return R.ok(openSlideService.getImageMap().keySet());
+        return R.ok(openSlideService.getCache());
     }
 
     @ApiOperation(value = "重新解析所有失败数据")

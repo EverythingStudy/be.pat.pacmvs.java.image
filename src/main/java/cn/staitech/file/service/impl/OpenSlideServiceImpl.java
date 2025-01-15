@@ -22,6 +22,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.google.common.cache.Cache;
 import lombok.extern.slf4j.Slf4j;
 import org.openslide.AssociatedImage;
 import org.openslide.OpenSlide;
@@ -82,7 +83,9 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     @Resource
     private FrService frService;
 
-    private final static Map<String, FileInsertVO> imageMap = new ConcurrentHashMap<>();
+    @Resource
+    private Cache<String, Object> cache;
+    //private final static Map<String, FileInsertVO> imageMap = new ConcurrentHashMap<>();
 
     /**
      * 总层数小于2为不可用
@@ -405,8 +408,8 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     }
 
     @Override
-    public Map<String, FileInsertVO> getImageMap() throws Exception {
-        return imageMap;
+    public Cache<String, Object> getCache() throws Exception {
+        return cache;
     }
 
     class ReparseImageTask implements Runnable {
@@ -440,14 +443,14 @@ public class OpenSlideServiceImpl implements OpenSlideService {
      */
     @Override
     public void asynSaveBatch(FileInsertVO vo) {
-        if (imageMap.get(vo.getTopicName())==null){
-            imageMap.put(vo.getTopicName(),vo);
+        if (cache.getIfPresent(vo.getTopicName()) == null) {
+            cache.put(vo.getTopicName(), vo);
             int processors = Runtime.getRuntime().availableProcessors();
             ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(processors * 2 + 1, processors * 4, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100000));
             String[] paths = vo.getFileList();
             if (paths.length > 0) {
                 try {
-                    Topic topic = imageService.getTopic(vo.getTopicName(),vo.getBizType());
+                    Topic topic = imageService.getTopic(vo.getTopicName(), vo.getBizType());
                     CountDownLatch countDownLatch = new CountDownLatch(paths.length);
                     for (String path : paths) {
                         threadPoolExecutor.submit(new ImageTask(countDownLatch, path, topic));
@@ -455,12 +458,11 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                     countDownLatch.await();
                 } catch (InterruptedException e) {
                     log.error("服务器读取切片异常：[{}]", e.getMessage());
-                }finally {
-                    imageMap.remove(vo.getTopicName());
+                } finally {
+                    cache.invalidate(vo.getTopicName());
+                    threadPoolExecutor.shutdown();
                 }
-
             }
-            threadPoolExecutor.shutdown();
         }
     }
 
