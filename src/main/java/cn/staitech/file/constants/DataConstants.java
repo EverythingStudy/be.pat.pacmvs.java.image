@@ -9,6 +9,7 @@ package cn.staitech.file.constants;
 public class DataConstants {
     public static final String SVS = "svs";
     public static final String NDPI = "ndpi";
+    public static final String LSL = "ndpi";
     //已删除
     public static final String DELETED  = "1";
     //未删除
