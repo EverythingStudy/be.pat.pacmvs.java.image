@@ -12,7 +12,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * 大文件上传接口
@@ -42,20 +43,8 @@ public class ImageController {
             return R.fail(ImageConstant.SERVER_IMAGE_UPLOAD_FAILURE1);
         }
         vo.setBizType(1);
-        ExecutorService executorService = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
-        Executors.newSingleThreadExecutor().submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    long start = System.currentTimeMillis();
-                    openSlideService.asynSaveBatch(vo);
-                    long time = System.currentTimeMillis()-start;
-                    log.info("异步批量服务器读取切片耗时：[{}]",time);
-                } catch (Exception e) {
-                    log.error("服务器选片异常:[{}]", e.getMessage());
-                }
-            }
-        });
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(new ReparseImageTask(executorService, vo));
         return R.ok();
     }
 
@@ -68,7 +57,6 @@ public class ImageController {
             this.executorService = executorService;
             this.vo = vo;
         }
-
         @Override
         public void run() {
             try {
@@ -78,8 +66,6 @@ public class ImageController {
                 log.info("异步批量服务器读取切片耗时：[{}]",time);
             } catch (Exception e) {
                 log.error("服务器选片异常:[{}]", e.getMessage());
-            }finally {
-                executorService.shutdown();
             }
         }
     }
