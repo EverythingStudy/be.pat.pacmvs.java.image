@@ -12,6 +12,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
@@ -42,20 +43,31 @@ public class ImageController {
             return R.fail(ImageConstant.SERVER_IMAGE_UPLOAD_FAILURE1);
         }
         vo.setBizType(1);
-        Executors.newSingleThreadExecutor().submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    long start = System.currentTimeMillis();
-                    openSlideService.asynSaveBatch(vo);
-                    long time = System.currentTimeMillis()-start;
-                    log.info("异步批量服务器读取切片耗时：[{}]",time);
-                } catch (Exception e) {
-                    log.error("服务器选片异常:[{}]", e.getMessage());
-                }
-            }
-        });
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(new ReparseImageTask(executorService, vo));
         return R.ok();
+    }
+
+    class ReparseImageTask implements Runnable {
+
+        private ExecutorService executorService;
+        private FileInsertVO vo;
+
+        public ReparseImageTask(ExecutorService executorService, FileInsertVO vo) {
+            this.executorService = executorService;
+            this.vo = vo;
+        }
+
+        public void run() {
+            try {
+                long start = System.currentTimeMillis();
+                openSlideService.asynSaveBatch(vo);
+                long time = System.currentTimeMillis()-start;
+                log.info("异步批量服务器读取切片耗时：[{}]",time);
+            } catch (Exception e) {
+                log.error("服务器选片异常:[{}]", e.getMessage());
+            }
+        }
     }
 
     @ApiOperation(value = "原始切片-选择切片-查询处理中的原始切片数据")
