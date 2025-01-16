@@ -266,51 +266,6 @@
 
     <!--配置profiles环境-->
     <profiles>
-        <profile>
-            <!--108线开发环境-->
-            <id>patsaasdev</id>
-            <properties>
-                <activatedProperties>patsaasdev</activatedProperties>
-                <nacosNamespace>e3b5b4e0-b5b4-4604-9bed-d9f42fe23eee</nacosNamespace>
-                <nacosAddress>http://127.0.0.1:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>127.0.0.1:8848</serverAddr>
-            </properties>
-        </profile>
-        <profile>
-            <!--108线开发环境2-->
-            <id>patsaasdev2</id>
-            <properties>
-                <activatedProperties>patsaasdev2</activatedProperties>
-                <nacosNamespace>11a701e9-f4f3-4232-ad0e-fb5ba9c9e36a</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
-            </properties>
-        </profile>
-        <profile>
-            <!--108线开发环境3-->
-            <id>patsaasdev3</id>
-            <properties>
-                <activatedProperties>patsaasdev3</activatedProperties>
-                <nacosNamespace>d46e90a7-0f09-4c81-80b8-9b7a37ea5dd0</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
-            </properties>
-        </profile>
-        <profile>
-            <!--114线测试环境-->
-            <id>saastest</id>
-            <properties>
-                <activatedProperties>saastest</activatedProperties>
-                <nacosNamespace>301bbb5d-e3f9-4703-bb92-327d62eb1efd</nacosNamespace>
-                <nacosAddress>http://192.168.52.114:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.114:8848</serverAddr>
-            </properties>
-        </profile>
-
         <!-- 以下为兔眼版本配置 -->
         <profile>
             <!--开发环境-->
@@ -318,50 +273,6 @@
             <properties>
                 <activatedProperties>eyedev</activatedProperties>
                 <nacosNamespace>759db948-170d-496a-9505-e77d3381b736</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
-            </properties>
-        </profile>
-        <profile>
-            <!-- 开发环境eyedevwlb -->
-            <id>eyedevwlb</id>
-            <properties>
-                <activatedProperties>eyedevwlb</activatedProperties>
-                <nacosNamespace>a1f59b06-a373-4676-98ae-3e5b27cfeae1</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
-            </properties>
-        </profile>
-        <profile>
-            <!-- 开发环境eyedevwf -->
-            <id>eyedevwf</id>
-            <properties>
-                <activatedProperties>eyedevwf</activatedProperties>
-                <nacosNamespace>581f2930-2ab6-4bc4-8792-c0b6cb56945b</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
-            </properties>
-        </profile>
-        <profile>
-            <!-- 开发环境eyedevwf1 -->
-            <id>eyedevwf1</id>
-            <properties>
-                <activatedProperties>eyedevwf1</activatedProperties>
-                <nacosNamespace>28797311-64b5-4e6c-8f2a-536c1bcdd1fb</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
-            </properties>
-        </profile>
-        <profile>
-            <!-- 开发环境eyedevzmj -->
-            <id>eyedevzmj</id>
-            <properties>
-                <activatedProperties>eyedevzmj</activatedProperties>
-                <nacosNamespace>bfed14f0-5013-42c6-a877-59375cdc830d</nacosNamespace>
                 <nacosAddress>http://192.168.52.108:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
                 <serverAddr>192.168.52.108:8848</serverAddr>
@@ -379,16 +290,15 @@
             </properties>
         </profile>
         <profile>
-            <!-- 智能阅片机构版 -->
-            <id>pathmedics</id>
+            <!--开发环境-->
+            <id>eyepro</id>
             <properties>
-                <activatedProperties>pathmedics</activatedProperties>
-                <nacosNamespace>c042fd91-259c-4a45-b2df-743512aff477</nacosNamespace>
-                <nacosAddress>http://192.168.52.183:8848</nacosAddress>
+                <activatedProperties>eyepro</activatedProperties>
+                <nacosNamespace>759db948-170d-496a-9505-e77d3381b736</nacosNamespace>
+                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.183:8848</serverAddr>
+                <serverAddr>192.168.52.108:8848</serverAddr>
             </properties>
         </profile>
-
     </profiles>
 </project>
