@@ -266,12 +266,11 @@
 
     <!--配置profiles环境-->
     <profiles>
-        <!-- 以下为兔眼版本配置 -->
         <profile>
             <!--开发环境-->
-            <id>eyedev</id>
+            <id>dev</id>
             <properties>
-                <activatedProperties>eyedev</activatedProperties>
+                <activatedProperties>dev</activatedProperties>
                 <nacosNamespace>759db948-170d-496a-9505-e77d3381b736</nacosNamespace>
                 <nacosAddress>http://192.168.52.108:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
@@ -279,10 +278,10 @@
             </properties>
         </profile>
         <profile>
-            <!-- 测试环境eyetest -->
-            <id>eyetest</id>
+            <!--测试环境-->
+            <id>test</id>
             <properties>
-                <activatedProperties>eyetest</activatedProperties>
+                <activatedProperties>test</activatedProperties>
                 <nacosNamespace>eyetest</nacosNamespace>
                 <nacosAddress>http://192.168.160.105:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
@@ -290,10 +289,10 @@
             </properties>
         </profile>
         <profile>
-            <!--开发环境-->
-            <id>eyepro</id>
+            <!--生产环境-->
+            <id>pro</id>
             <properties>
-                <activatedProperties>eyepro</activatedProperties>
+                <activatedProperties>pro</activatedProperties>
                 <nacosNamespace>759db948-170d-496a-9505-e77d3381b736</nacosNamespace>
                 <nacosAddress>http://192.168.52.108:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
