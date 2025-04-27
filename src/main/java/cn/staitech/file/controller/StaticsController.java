@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.FileNotFoundException;
 
@@ -23,7 +22,7 @@ import java.io.FileNotFoundException;
  */
 @Slf4j
 @RequestMapping("/statics")
-@Api(value = "切片管理-原始切片-选择切片", tags = "切片管理-原始切片-选择切片")
+@Api(value = "获取缩略图")
 @RestController
 public class StaticsController {
     @Value("${file.path}")
@@ -31,7 +30,7 @@ public class StaticsController {
 
     @ApiOperation(value = "切片管理-缩略图查询")
     @GetMapping(value = "/thumbnail/**",produces = {MediaType.IMAGE_JPEG_VALUE, MediaType.IMAGE_PNG_VALUE})
-    public  byte[] getThumbImage(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    public  byte[] getThumbImage(HttpServletRequest request) throws Exception {
         byte[] bytes = null;
         String path = request.getServletPath();
         path = path.replace("/statics",baseDir);

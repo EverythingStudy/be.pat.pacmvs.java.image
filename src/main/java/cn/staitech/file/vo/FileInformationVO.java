@@ -2,7 +2,6 @@ package cn.staitech.file.vo;
 
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
-
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -36,10 +35,6 @@ public class FileInformationVO {
     @ApiModelProperty(value = "机构ID", required = true)
     @NotNull(message = "机构ID不能为空")
     private Long organizationId;
-
-    @ApiModelProperty(value = "专题名称")
-    @NotBlank(message = "专题名称不能为空")
-    private String topicName;
 
     @ApiModelProperty(value = "项目分类ID")
     private Integer projectTypeId;

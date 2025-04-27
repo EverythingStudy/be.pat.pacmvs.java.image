@@ -3,11 +3,11 @@ package cn.staitech.file.util;
 import java.io.IOException;
 
 /**
- * @author: wangfeng
- * @create: 2023-07-24 16:03:21
- * @Description: LibVips图像格式转换
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
  */
-
 public class VipsUtils {
     /**
      * jpeg图片转tiff

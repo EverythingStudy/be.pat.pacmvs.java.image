@@ -34,9 +34,10 @@ import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 大文件上传接口
- *
- * @author wangf
+ * @author mugw
+ * @version 1.0
+ * @description 客户端上传切片
+ * @date 2025/4/22 09:32:40
  */
 @Slf4j
 @RequestMapping("/bigPicture")
@@ -64,7 +65,6 @@ public class FileController {
 	 * @param fileInformation
 	 * @return
 	 */
-	//@RequiresPermissions("section:slices:upload")
 	@ApiOperation(value = "添加文件前置信息（大小文件共用）")
 	@PostMapping("/fileInformation")
 	@Log(title = "上传切片", menu = "切片管理", subMenu = "切片列表", businessType = BusinessType.INSERT)
@@ -103,7 +103,6 @@ public class FileController {
 	 * @param file    ： 文件
 	 * @return ： 返回结果
 	 */
-	//@RequiresPermissions("section:slices:upload")
 	@ApiOperation(value = "每一分片文件上传")
 	@PostMapping("/uploadSlice")
 	@ApiImplicitParams({
@@ -143,7 +142,6 @@ public class FileController {
 	 * @return
 	 * @throws InterruptedException
 	 */
-	// @RequiresPermissions("anno:image:del")
 	@ApiOperation(value = "文件上传失败释放资源")
 	@PostMapping("/uploadDel")
 	public R<String> uploadDel(@RequestBody UploadDelVO req) throws InterruptedException {
@@ -174,7 +172,6 @@ public class FileController {
 	 * @return
 	 * @throws InterruptedException
 	 */
-	// @RequiresPermissions("anno:image:del")
 	@ApiOperation(value = "切片管理-删除切片")
 	@PostMapping("/deleteSlide")
 	public R deleteSlide(@RequestBody UploadDelVO req) throws InterruptedException {

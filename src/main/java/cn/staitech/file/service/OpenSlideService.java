@@ -1,15 +1,18 @@
 package cn.staitech.file.service;
 
 import cn.staitech.file.domain.Image;
-import cn.staitech.file.vo.FileInsertVO;
 import org.openslide.OpenSlide;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
-
+/**
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
+ */
 public interface OpenSlideService {
 
 
@@ -21,18 +24,7 @@ public interface OpenSlideService {
      * @return 访问地址
      * @throws Exception
      */
-
     String uploadFile(MultipartFile file, Long imageId) throws Exception;
-
-    /**
-     * 根据物理地址,获取到病理图片的resolutionX,resolutionY,sourceLens并存入image
-     * @param os
-     * @param image
-     * @throws IOException
-     */
-
-    void writeRseolution(OpenSlide os, Image image) throws IOException;
-
 
     /**
      * 把缩略图实际存储到本地
@@ -42,18 +34,12 @@ public interface OpenSlideService {
      * @return
      */
     void processThumbUpdate(File inFile, Long id);
-    void processThumbSave(File inFile, Image image);
 
-    /**
-     * 异步批量服务器读取切片
-     * @param vo
-     * @throws Exception
-     */
-    void asynSaveBatch(FileInsertVO vo) throws Exception;
+    void processThumb(List<Image> images) throws Exception;
+
+    void processThumb(Image image) throws Exception;
 
     void reparse(List<Long> imageIds) throws Exception;
-
-    Map<String, FileInsertVO> getImageMap() throws Exception;
 
 }
 

@@ -1,10 +1,11 @@
 package cn.staitech.file.constant;
 
 /**
- * @author 张争
- * @date 2022/9/29 11:32
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
  */
-
 public class ImageConstant {
     public static final String SVS = "svs";
     public static final String NDPI = "ndpi";
@@ -38,6 +39,7 @@ public class ImageConstant {
     //public static final Long ALLOWED_FILE_MAXSIZE = 1024 * 1024 * 1024 * 3L;
     public static final Long ALLOWED_FILE_MAXSIZE = 1024 * 1024 * 1024 * 5L;
     public static final String THUMB_BASE_DIR = "/file/statics";
-
+    public static final Integer NUMBER_0 = 0;
+    public static final Integer NUMBER_1 = 1;
 
 }

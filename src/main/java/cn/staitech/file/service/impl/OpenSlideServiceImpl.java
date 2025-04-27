@@ -1,31 +1,22 @@
 package cn.staitech.file.service.impl;
 
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.Snowflake;
 import cn.hutool.core.util.IdUtil;
-import cn.staitech.common.core.utils.uuid.IdUtils;
-import cn.staitech.common.security.utils.SecurityUtils;
-import cn.staitech.file.DataConstants;
+import cn.hutool.core.util.ObjectUtil;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
-import cn.staitech.file.domain.Topic;
 import cn.staitech.file.mapper.ImageMapper;
-import cn.staitech.file.service.FrService;
 import cn.staitech.file.service.ImageService;
 import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.util.FileUploadUtils;
 import cn.staitech.file.util.ImageConversionsionResp;
 import cn.staitech.file.util.ImageUtils;
-import cn.staitech.file.vo.FileInsertVO;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.extern.slf4j.Slf4j;
-import org.openslide.AssociatedImage;
+import org.apache.commons.collections4.CollectionUtils;
 import org.openslide.OpenSlide;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -33,21 +24,23 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.ResourceUtils;
 import org.springframework.web.multipart.MultipartFile;
-
 import javax.annotation.Resource;
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
 /**
- * OpenSlideServiceImpl
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
  */
 @Slf4j
 @Service
@@ -55,34 +48,51 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
     private static Snowflake snowflake = IdUtil.getSnowflake();
 
-    //@Value("${open-slide.img-type}")
     private final String imgType = "jpg";
 
-    //@Value("${open-slide.img-size}")
     private final Integer imgSize = 256;
-
-    /**
-     * 智能阅片check
-     */
-    @Value("${frinspection.check}")
-    private boolean check;
 
     @Value("${file.path}")
     private String localFilePath;
 
-    @Autowired
+    @Resource
     private ImageService imageService;
 
-    @Autowired
+    @Resource
     private ImageMapper imageMapper;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
-    @Resource
-    private FrService frService;
+    private static final ThreadPoolExecutor THREAD_POOL_EXECUTOR;
 
-    private final static Map<String, FileInsertVO> imageMap = new ConcurrentHashMap<>();
+    static {
+        int processors = Runtime.getRuntime().availableProcessors();
+        THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
+                processors * 2 + 1,
+                processors * 4,
+                30,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(100000),
+                new ThreadFactory() {
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        int threadCount = 0;
+                        Thread t = new Thread(r, "OpenSlide-Thread-" + threadCount++);
+                        t.setPriority(Thread.MAX_PRIORITY); // 设置线程优先级
+                        t.setDaemon(false); // 设置是否为守护线程
+                        return t;
+                    }
+                },
+                new RejectedExecutionHandler(){
+                    @Override
+                    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                        // 丢弃任务，不抛出异常
+                        log.error("OpenSlide THREAD_POOL_EXECUTOR rejectedExecution: {}", r);
+                    }
+                }
+        );
+    }
 
     /**
      * 总层数小于2为不可用
@@ -147,13 +157,11 @@ public class OpenSlideServiceImpl implements OpenSlideService {
      * @return
      * @throws IOException
      */
-    public void writeRseolution(OpenSlide os, Image image) {
+    private void writeRseolution(OpenSlide os, Image image) {
         String mppX = "";
         String mppY = "";
         Integer sourceLens = 0;
-
         Map<String, String> properties = os.getProperties();
-        // log.info("writeRseolution --> image id: {} path: {} properties: {}", image.getImageId(), image.getImagePath(), properties);
 
         // 获取原始图像参数
         if (properties.containsKey("openslide.mpp-x")) {
@@ -211,21 +219,6 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         imageService.updateById(image);
     }
 
-    /**
-     * 20231109需求：解析失败后重新解析一次
-     *
-     * @param inFile
-     * @param image
-     * @return
-     */
-    public void processThumbSave(File inFile, Image image) {
-        image = processThumbInstance(inFile, image);
-        if (ImageConstant.IMAGE_PROCESS_PARSE_FAIL.equals(image.getProcessFlag())) {
-            processThumbInstance(inFile, image);
-        }
-        imageService.save(image);
-    }
-
     private Image processThumbInstance(File inFile, Image image) {
         OpenSlide os = null;
         try {
@@ -236,7 +229,6 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             destPath = resp.getDestPath();
             os = resp.getOpenSlide();
             if (os == null) {
-                log.info("****************OpenSlide验证未通过,转换后图像地址:[{}]***************", destPath);
                 image.setImagePath(destPath);
                 File file = new File(destPath);
                 os = new OpenSlide(file);
@@ -257,15 +249,6 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             createThumbnailImage(os, thumbPath, imgSize);
             createThumbnailImage(os, cachePath, 1024);
 
-            Map<String, AssociatedImage> map = os.getAssociatedImages();
-
-            /*if (map.containsKey("label")) {
-                createImage(map, labelPath, "label");
-            }
-            if (map.containsKey("macro")) {
-                createImage(map, marcoPath, "macro");
-            }*/
-
             // 把缩略图、整个图片的长和宽存入image
             image = updateThumbWidthHeightTileCountImage(os, image, inFile.getAbsolutePath());
             if (image.getFormat().equals(ImageConstant.SVS) || image.getFormat().equals(ImageConstant.NDPI)) {
@@ -277,14 +260,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
                 image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
             } else {
-                //TODO 是否需要算法清晰度校验    type:1 原始切片 2：预测切片
-                if (check && image.getFormat().equals(DataConstants.SVS) && image.getBizType()==1) {
-                    //通知算法校验
-                    frService.verification(image);
-                }else{
-                    // 可用
-                    image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
-                }
+                image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
                 image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_SUCCESS);
             }
         } catch (Exception e) {
@@ -353,178 +329,41 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         ImageIO.write(th, imgType, new File(resultName));
     }
 
-    /**
-     * 生成 label、macro
-     *
-     * @param map
-     * @param path
-     * @param type
-     * @throws IOException
-     */
-    private void createImage(Map<String, AssociatedImage> map, String path, String type) throws IOException {
-        String folderPath = new File(path).getParent();
-        String resultName = folderPath + "/0." + imgType;
-        File file = new File(folderPath);
-        if (!file.exists()) {
-            file.mkdirs();
-        }
-        AssociatedImage associatedImage = map.get(type);
-        BufferedImage ar = associatedImage.toBufferedImage();
-        BufferedImage result = new BufferedImage(ar.getWidth(), ar.getHeight(), 1);
-        Graphics2D g = result.createGraphics();
-        g.drawImage(ar, 0, 0, null);
-        ImageIO.write(result, imgType, new File(resultName));
-    }
 
-    /**
-     * 重新解析原始切片缩略图
-     *
-     * @param imageIds
-     * @throws Exception
-     */
+    @Override
     public void reparse(List<Long> imageIds) throws Exception {
-        int processors = Runtime.getRuntime().availableProcessors();
-        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(processors * 2 + 1, processors * 4, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100000));
-        if (imageIds.isEmpty()) {
-            return;
+        if (CollectionUtils.isEmpty(imageIds)) {
+            throw new Exception("imageIds不能为空");
         }
-        QueryWrapper<Image> queryWrapper = Wrappers.query();
-        queryWrapper.eq("status", ImageConstant.IMAGE_STATUS_UNABLE);
-        queryWrapper.eq("process_flag", ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
-        queryWrapper.in("image_id", imageIds);
-        List<Image> list = imageService.list(queryWrapper);
-        if (list != null && !list.isEmpty()) {
-            CountDownLatch countDownLatch = new CountDownLatch(list.size());
-            for (Image image : list) {
-                threadPoolExecutor.submit(new ReparseImageTask(countDownLatch, image));
-            }
-            countDownLatch.await();
-        }
-        threadPoolExecutor.shutdown();
-    }
-
-    @Override
-    public Map<String, FileInsertVO> getImageMap() throws Exception {
-        return imageMap;
-    }
-
-    class ReparseImageTask implements Runnable {
-        private CountDownLatch countDownLatch;
-        private Image image;
-
-        public ReparseImageTask(CountDownLatch countDownLatch, Image image) {
-            this.countDownLatch = countDownLatch;
-            this.image = image;
-        }
-
-        @Override
-        public void run() {
-            try {
-                log.info("开始重新解析原始切片缩略图,原始切片信息:[{}]", image);
-                processThumbUpdate(new File(image.getImagePath()), image.getImageId());
-                log.info("重新解析原始切片缩略图完成,原始切片信息:[{}]", image);
-            } catch (Exception e) {
-                log.error("重新解析原始切片缩略图异常：[{}],原始切片信息:[{}]", e.getMessage(), image);
-            } finally {
-                countDownLatch.countDown();
-            }
-        }
+        List<Image> images = imageService.list(Wrappers.<Image>lambdaQuery().eq(Image::getStatus, ImageConstant.IMAGE_STATUS_UNABLE)
+                .eq(Image::getProcessFlag, ImageConstant.IMAGE_PROCESS_PARSE_FAIL).in(Image::getImageId, imageIds));
+        processThumb(images);
     }
 
     /**
-     * 异步批量服务器读取切片
-     *
-     * @param vo
+     * 创建缩略图
+     * @param images
      * @throws Exception
      */
     @Override
-    public void asynSaveBatch(FileInsertVO vo) throws Exception {
-        if (imageMap.get(vo.getTopicName())==null){
-            imageMap.put(vo.getTopicName(),vo);
-            int processors = Runtime.getRuntime().availableProcessors();
-            ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(processors * 2 + 1, processors * 4, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(100000));
-            String[] paths = vo.getFileList();
-            if (paths.length > 0) {
-                Topic topic = imageService.getTopic(vo.getTopicName(),vo.getBizType());
-                CountDownLatch countDownLatch = new CountDownLatch(paths.length);
-                for (String path : paths) {
-                    threadPoolExecutor.submit(new ImageTask(countDownLatch, path, topic));
-                }
-                countDownLatch.await();
-                imageMap.remove(vo.getTopicName());
+    public void processThumb(List<Image> images) throws Exception {
+        if (CollectionUtils.isNotEmpty(images)) {
+            CompletableFuture<?>[] futures = new CompletableFuture[images.size()];
+            for (int i = 0; i < images.size(); i++) {
+                Image image = images.get(i);
+                futures[i] = CompletableFuture.runAsync(() -> {
+                    processThumbInstance(new File(image.getImagePath()), image);
+                    imageMapper.updateById(image);
+                }, THREAD_POOL_EXECUTOR);
             }
-            threadPoolExecutor.shutdown();
         }
     }
 
-    class ImageTask implements Runnable {
-
-        private CountDownLatch countDownLatch;
-        private String path;
-        private Topic topic;
-
-        public ImageTask(CountDownLatch countDownLatch, String path, Topic topic) {
-            this.countDownLatch = countDownLatch;
-            this.path = path;
-            this.topic = topic;
-        }
-
-        @Override
-        public void run() {
-            try {
-                Long loginUser = SecurityUtils.getUserId();
-                File file = new File(path);
-                String imageName = file.getName();
-                QueryWrapper<Image> imageQueryWrapper = Wrappers.query();
-                imageQueryWrapper.eq("image_name", imageName);
-                Image src = imageMapper.selectOne(imageQueryWrapper);
-                if (src != null) {
-                    log.warn("服务器选片异常:[{}]该文件已经存在", imageName);
-                    countDownLatch.countDown();
-                    return;
-                }
-                /*if (Long.valueOf(file.length()) > ImageConstant.ALLOWED_FILE_MAXSIZE) {
-                    log.warn("服务器选片异常:[{}]该文件大小超过5g", imageName);
-                    countDownLatch.countDown();
-                    return;
-                }*/
-                Image image = new Image();
-                image.setBizType(topic.getProjectTypeId());
-                image.setOrganizationId(topic.getOrganizationId());
-                image.setImagePath(path);
-                image.setImageUrl(path);
-                image.setImageName(imageName);
-                image.setSize(String.valueOf(file.length()));
-                // 去掉文件扩展名的文件名称
-                image.setFileName(FileUploadUtils.getFileName(file.getName()));
-                image.setCreateBy(loginUser);
-                image.setUpdateBy(loginUser);
-                image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
-                image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
-                image.setImageCode(IdUtils.randomUUID());
-                image.setDelFlag(DataConstants.NOT_DELETED);
-                image.setTopicId(topic.getTopicId());
-                image.setTopicName(topic.getTopicName());
-                image.setSource(ImageConstant.IMAGE_SOURCE_SERVER);
-                image.setFormat(image.getImageName().substring(image.getImageName().lastIndexOf('.') + 1));
-                // 插入数据 - 生成文件目录、文件名 start
-                String folderName = DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN);
-                String filePathStr = folderName + "/" + snowflake.nextIdStr() + "/0.jpg";
-                String thumbPath = ImageConstant.THUMB_BASE_DIR + "/thumbnail/" + filePathStr;
-                String macroPath = ImageConstant.THUMB_BASE_DIR + "/macro/" + filePathStr;
-                String labelPath = ImageConstant.THUMB_BASE_DIR + "/label/" + filePathStr;
-                String cacheURL = localFilePath + "/cacheThumbnail/" + filePathStr;
-                image.setThumbUrl(thumbPath);
-                image.setMacroUrl(macroPath);
-                image.setLabelUrl(labelPath);
-                image.setCacheUrl(cacheURL);
-                // 生成缩略图
-                processThumbSave(file, image);
-            } catch (Exception e) {
-                log.error("服务器选片异常:[{}],原始切片地址：[{}]", e.getMessage(), path);
-            } finally {
-                countDownLatch.countDown();
-            }
+    @Override
+    public void processThumb(Image image) throws Exception {
+        if (ObjectUtil.isNotEmpty(image)){
+            List<Image> images = Arrays.asList(image);
+            processThumb(images);
         }
     }
 
