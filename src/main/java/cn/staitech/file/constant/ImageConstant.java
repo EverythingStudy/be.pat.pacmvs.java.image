@@ -1,9 +1,15 @@
 package cn.staitech.file.constant;
 
-
+/**
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
+ */
 public class ImageConstant {
     public static final String SVS = "svs";
     public static final String NDPI = "ndpi";
+
     public static final String IMAGE_EXISTS = "该文件已经存在，请重新上传";
 
     public static final String DISALLOWED_EXTENSION = "上传的图像格式暂不支持";
@@ -17,8 +23,8 @@ public class ImageConstant {
     public static final String IMAGE_PROCESS_PARSING = "1";
     public static final String IMAGE_PROCESS_PARSE_SUCCESS = "3";
     public static final String IMAGE_PROCESS_PARSE_FAIL = "2";
-    //public static final String IMAGE_PROCESS_UPLOAD_FAIL = "0";
-    //public static final String IMAGE_PROCESS_UPLOADING = "5";
+    public static final String IMAGE_PROCESS_UPLOAD_FAIL = "0";
+    public static final String IMAGE_PROCESS_UPLOADING = "5";
     public static final Integer IMAGE_SOURCE_UPLOAD = 1;
     public static final Integer IMAGE_SOURCE_SERVER = 2;
 
@@ -33,9 +39,7 @@ public class ImageConstant {
     //public static final Long ALLOWED_FILE_MAXSIZE = 1024 * 1024 * 1024 * 3L;
     public static final Long ALLOWED_FILE_MAXSIZE = 1024 * 1024 * 1024 * 5L;
     public static final String THUMB_BASE_DIR = "/file/statics";
+    public static final Integer NUMBER_0 = 0;
+    public static final Integer NUMBER_1 = 1;
 
-
-    //未删除
-    public static final String NOT_DELETED = "0";
-    public static final String ALGORITHM_MODEL_NAME  = "图片清晰度检验";
 }

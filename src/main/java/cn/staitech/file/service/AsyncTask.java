@@ -1,33 +1,18 @@
 package cn.staitech.file.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import cn.staitech.file.service.remote.SlideImageService;
-
+import javax.annotation.Resource;
 import java.io.File;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.annotation.Resource;
-
-/**
- * @author: wangfeng
- * @create: 2023-06-21 14:28:47
- * @Description: 异步Task
- */
-
-//@Component
 @Slf4j
 @Service
 public class AsyncTask {
 
-    @Autowired
-    private OpenSlideService openSlideService;
-    
     @Resource
-    private SlideImageService slideImageService;
+    private OpenSlideService openSlideService;
 
     /**
      * 异步生成缩略图

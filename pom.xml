@@ -267,22 +267,36 @@
     <!--配置profiles环境-->
     <profiles>
         <profile>
-            <!--开发环境-->
-            <id>dev</id>
+            <!-- 智能阅片机构版 -->
+            <id>pathmedics</id>
             <properties>
-                <activatedProperties>dev</activatedProperties>
-                <nacosNamespace>759db948-170d-496a-9505-e77d3381b736</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
+                <activatedProperties>pathmedics</activatedProperties>
+                <nacosNamespace>c042fd91-259c-4a45-b2df-743512aff477</nacosNamespace>
+                <nacosAddress>http://192.168.52.183:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
+                <serverAddr>192.168.52.183:8848</serverAddr>
             </properties>
         </profile>
+
+        <profile>
+            <!--开发环境-->
+            <id>pacmvsdev</id>
+            <properties>
+                <activatedProperties>pacmvsdev</activatedProperties>
+                <nacosNamespace>pacmvsdev</nacosNamespace>
+                <nacosAddress>http://192.168.52.224:8848</nacosAddress>
+                <nacosGroup>DEFAULT_GROUP</nacosGroup>
+                <serverAddr>192.168.52.224:8848</serverAddr>
+            </properties>
+        </profile>
+
+
         <profile>
             <!--测试环境-->
-            <id>test</id>
+            <id>testpvcmvs</id>
             <properties>
-                <activatedProperties>test</activatedProperties>
-                <nacosNamespace>eyetest</nacosNamespace>
+                <activatedProperties>testpvcmvs</activatedProperties>
+                <nacosNamespace>301f5c59-5f9c-451c-a77b-88d64ddfd9f0</nacosNamespace>
                 <nacosAddress>http://192.168.160.105:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
                 <serverAddr>192.168.160.105:8848</serverAddr>
@@ -290,14 +304,15 @@
         </profile>
         <profile>
             <!--生产环境-->
-            <id>pro</id>
+            <id>pathmedics</id>
             <properties>
-                <activatedProperties>pro</activatedProperties>
-                <nacosNamespace>759db948-170d-496a-9505-e77d3381b736</nacosNamespace>
-                <nacosAddress>http://192.168.52.108:8848</nacosAddress>
+                <activatedProperties>pathmedics</activatedProperties>
+                <nacosNamespace>40438ad6-00f6-4524-8043-4e79819cccf0</nacosNamespace>
+                <nacosAddress>http://10.10.4.13:8848</nacosAddress>
                 <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.108:8848</serverAddr>
+                <serverAddr>10.10.4.13:8848</serverAddr>
             </properties>
         </profile>
+
     </profiles>
 </project>

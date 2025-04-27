@@ -14,9 +14,10 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * Image
- *
- * @author wangf
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
  */
 @AllArgsConstructor
 @NoArgsConstructor
@@ -207,5 +208,19 @@ public class Image implements Serializable {
 
     private Long organizationId;
 
+    @ApiModelProperty("动物号")
+    private String animalCode;
+
+    @ApiModelProperty("蜡块号")
+    private String waxCode;
+
+    @ApiModelProperty("组别号")
+    private String groupCode;
+
+    @ApiModelProperty("性别（M；F）")
+    private String sexFlag;
+
+    @ApiModelProperty("文件名解析状态（0失败1成功）")
+    private Integer analyzeStatus;
 
 }

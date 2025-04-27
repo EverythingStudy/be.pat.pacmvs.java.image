@@ -14,14 +14,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
 import javax.annotation.Resource;
 import java.io.File;
 
 /**
- * 文件请求处理
- *
- * @author staitech
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
  */
 @RestController
 @RequestMapping("/smallPicture")
@@ -37,7 +37,6 @@ public class OpensliderController {
     /**
      * 文件上传请求
      */
-    //@RequiresPermissions("section:slices:upload")
     @ApiOperation(value = "小文件上传接口")
     @PostMapping("/upload")
     @ApiImplicitParams({

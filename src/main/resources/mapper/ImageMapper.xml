@@ -2,10 +2,63 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="cn.staitech.file.mapper.ImageMapper">
-    <update id="updateByPrimaryKeyToProcessFlag"
-            parameterType="cn.staitech.file.domain.Image">
-        update fm_image
-        set process_flag = #{processFlag,jdbcType=SMALLINT}
-        where image_id = #{imageId,jdbcType=BIGINT}
-    </update>
+    <resultMap id="BaseResultMap" type="cn.staitech.file.domain.Image">
+        <id property="imageId" column="image_id" jdbcType="BIGINT"/>
+        <result property="fileName" column="file_name" jdbcType="VARCHAR"/>
+        <result property="imageName" column="image_name" jdbcType="VARCHAR"/>
+        <result property="imagePath" column="image_path" jdbcType="VARCHAR"/>
+        <result property="imageUrl" column="image_url" jdbcType="VARCHAR"/>
+        <result property="thumbUrl" column="thumb_url" jdbcType="VARCHAR"/>
+        <result property="macroUrl" column="macro_url" jdbcType="VARCHAR"/>
+        <result property="labelUrl" column="label_url" jdbcType="VARCHAR"/>
+        <result property="cacheUrl" column="cache_url" jdbcType="VARCHAR"/>
+        <result property="multiple" column="multiple" jdbcType="VARCHAR"/>
+        <result property="format" column="format" jdbcType="VARCHAR"/>
+        <result property="width" column="width" jdbcType="VARCHAR"/>
+        <result property="height" column="height" jdbcType="VARCHAR"/>
+        <result property="depth" column="depth" jdbcType="VARCHAR"/>
+        <result property="size" column="size" jdbcType="VARCHAR"/>
+        <result property="globalSize" column="global_size" jdbcType="VARCHAR"/>
+        <result property="resolvingPower" column="resolving_power" jdbcType="VARCHAR"/>
+        <result property="tileCountList" column="tile_count_list" jdbcType="VARCHAR"/>
+        <result property="levelCount" column="level_count" jdbcType="TINYINT"/>
+        <result property="chunkTotal" column="chunk_total" jdbcType="SMALLINT"/>
+        <result property="md5" column="md5" jdbcType="VARCHAR"/>
+        <result property="resolutionX" column="resolution_x" jdbcType="VARCHAR"/>
+        <result property="resolutionY" column="resolution_y" jdbcType="VARCHAR"/>
+        <result property="sourceLens" column="source_lens" jdbcType="INTEGER"/>
+        <result property="createBy" column="create_by" jdbcType="BIGINT"/>
+        <result property="createTime" column="create_time" jdbcType="TIMESTAMP"/>
+        <result property="updateBy" column="update_by" jdbcType="BIGINT"/>
+        <result property="updateTime" column="update_time" jdbcType="TIMESTAMP"/>
+        <result property="imageCode" column="image_code" jdbcType="VARCHAR"/>
+        <result property="status" column="status" jdbcType="TINYINT"/>
+        <result property="organizationId" column="organization_id" jdbcType="BIGINT"/>
+        <result property="bizType" column="biz_type" jdbcType="TINYINT"/>
+        <result property="source" column="source" jdbcType="TINYINT"/>
+        <result property="topicId" column="topic_id" jdbcType="BIGINT"/>
+        <result property="topicName" column="topic_name" jdbcType="VARCHAR"/>
+        <result property="animalCode" column="animal_code" jdbcType="VARCHAR"/>
+        <result property="waxCode" column="wax_code" jdbcType="INTEGER"/>
+        <result property="groupCode" column="group_code" jdbcType="VARCHAR"/>
+        <result property="sexFlag" column="sex_flag" jdbcType="VARCHAR"/>
+        <result property="analyzeStatus" column="analyze_status" jdbcType="TINYINT"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        image_id,file_name,image_name,
+        image_path,image_url,thumb_url,
+        macro_url,label_url,cache_url,
+        multiple,format,width,
+        height,depth,size,
+        global_size,resolving_power,tile_count_list,
+        level_count,chunk_total,md5,
+        resolution_x,resolution_y,source_lens,
+        create_by,create_time,update_by,
+        update_time,image_code,status,
+        host_id,organization_id,round_id,
+        biz_type,source,
+        topic_id,topic_name,animal_code,wax_code,
+        group_code,sex_flag,analyze_status
+    </sql>
 </mapper>

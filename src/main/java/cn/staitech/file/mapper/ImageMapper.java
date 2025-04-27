@@ -8,16 +8,12 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 /**
- * @author muguowei
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
  */
 @Repository
 public interface ImageMapper extends BaseMapper<Image> {
-
-    /**
-     * 根据主键更新process_flag字段
-     * @param record
-     * @return
-     */
-    int updateByPrimaryKeyToProcessFlag(Image record);
 
 }
