@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,7 +19,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * @author admin
+ * @author mugw
+ * @version 1.0
+ * @description 服务器切片目录及文件查询
+ * @date 2025/4/22 09:32:40
  */
 @Slf4j
 @Api(value = "文件管理器", tags = "文件管理器")
@@ -29,13 +31,6 @@ import java.util.stream.Collectors;
 public class FileManagerController {
     @Value("${file.path}")
     private String baseDir;
-    //private String baseDir = File.separator+"home"+File.separator+"staitech"+File.separator+"Slides";
-
-    /**
-     * /home/pat_saas/Data
-     * /home/pat_saas/Slides
-     * /home/pat_saas/Upload
-     */
 
     /**
      * 查询目录下的文件夹和文件列表

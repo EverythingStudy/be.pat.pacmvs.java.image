@@ -3,29 +3,28 @@ package cn.staitech.file.util;
 import cn.staitech.common.core.exception.file.FileNameLengthLimitExceededException;
 import cn.staitech.common.core.exception.file.FileSizeLimitExceededException;
 import cn.staitech.common.core.exception.file.InvalidExtensionException;
-import cn.staitech.common.core.utils.DateUtils;
-import cn.staitech.common.core.utils.StringUtils;
 import cn.staitech.common.core.utils.file.FileTypeUtils;
 import cn.staitech.common.core.utils.file.MimeTypeUtils;
-import cn.staitech.common.core.utils.uuid.Seq;
 import cn.staitech.file.domain.Image;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.openslide.OpenSlide;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Objects;
 
-@Slf4j
+
 
 /**
- * 文件上传工具类
- *
- * @author staitech
- */ public class FileUploadUtils {
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
+ */
+@Slf4j
+public class FileUploadUtils {
 
     /**
      * 允许上传的文件的扩展名
@@ -136,42 +135,6 @@ import java.util.Objects;
             log.info("--------------------------------------------------------------------------------------------------");
         }
         return ImageConversionsionResp.builder().openSlide(os).destPath(destPath).build();
-    }
-
-    /**
-     * 编码文件名
-     */
-    public static final String extractFilename(MultipartFile file) {
-        return StringUtils.format("{}/{}_{}.{}", DateUtils.datePath(), FilenameUtils.getBaseName(file.getOriginalFilename()), Seq.getId(Seq.uploadSeqType), FileTypeUtils.getExtension(file));
-    }
-
-    private static final File getAbsoluteFile(String uploadDir, String fileName) throws IOException {
-
-        File desc = new File(uploadDir + File.separator + fileName);
-
-        if (!desc.exists()) {
-            if (!desc.getParentFile().exists()) {
-                desc.getParentFile().mkdirs();
-            }
-        }
-        return desc.isAbsolute() ? desc : desc.getAbsoluteFile();
-    }
-
-    public static File getAbsoluteFile(String upload) throws IOException {
-
-        File desc = new File(upload);
-
-        if (!desc.exists()) {
-            if (!desc.getParentFile().exists()) {
-                desc.getParentFile().mkdirs();
-            }
-        }
-        return desc.isAbsolute() ? desc : desc.getAbsoluteFile();
-    }
-
-    private static final String getPathFileName(String fileName) throws IOException {
-        String pathFileName = "/" + fileName;
-        return pathFileName;
     }
 
     /**

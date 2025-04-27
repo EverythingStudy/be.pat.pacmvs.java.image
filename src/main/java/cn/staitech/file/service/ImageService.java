@@ -5,7 +5,9 @@ import cn.staitech.file.domain.Image;
 import cn.staitech.file.domain.Topic;
 import cn.staitech.file.vo.FileInformationOutVO;
 import cn.staitech.file.vo.FileInformationVO;
+import cn.staitech.file.vo.FileInsertVO;
 import com.baomidou.mybatisplus.extension.service.IService;
+import java.util.List;
 
 /**
  * ImageService
@@ -14,7 +16,9 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface ImageService extends IService<Image> {
 
-    Topic getTopic(String topicName, Integer projectTypeId);
+    Topic getTopic(String topicName);
+
+    List<Image> batchInsert(FileInsertVO vo) throws Exception;
 
     /**
      * 上传文件前置信息,向数据库中增加一条图像信息,初始化,存入MD5等信息
