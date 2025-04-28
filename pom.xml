@@ -267,18 +267,6 @@
     <!--配置profiles环境-->
     <profiles>
         <profile>
-            <!-- 智能阅片机构版 -->
-            <id>pathmedics</id>
-            <properties>
-                <activatedProperties>pathmedics</activatedProperties>
-                <nacosNamespace>c042fd91-259c-4a45-b2df-743512aff477</nacosNamespace>
-                <nacosAddress>http://192.168.52.183:8848</nacosAddress>
-                <nacosGroup>DEFAULT_GROUP</nacosGroup>
-                <serverAddr>192.168.52.183:8848</serverAddr>
-            </properties>
-        </profile>
-
-        <profile>
             <!--开发环境-->
             <id>pacmvsdev</id>
             <properties>
@@ -289,8 +277,6 @@
                 <serverAddr>192.168.52.224:8848</serverAddr>
             </properties>
         </profile>
-
-
         <profile>
             <!--测试环境-->
             <id>testpvcmvs</id>
