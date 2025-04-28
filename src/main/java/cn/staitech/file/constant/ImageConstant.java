@@ -33,10 +33,6 @@ public class ImageConstant {
     public static final String  ARCHIVE_STATUS_1  = "1";
     public static final String  ARCHIVE_STATUS_2  = "2";
 
-    /**
-     * 文件超过3G不允许上传
-     */
-    //public static final Long ALLOWED_FILE_MAXSIZE = 1024 * 1024 * 1024 * 3L;
     public static final Long ALLOWED_FILE_MAXSIZE = 1024 * 1024 * 1024 * 5L;
     public static final String THUMB_BASE_DIR = "/file/statics";
     public static final Integer NUMBER_0 = 0;

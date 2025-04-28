@@ -21,7 +21,6 @@ public class VipsUtils {
      */
     public static boolean convertToPyramidalTIFF(String source, String target) throws IOException, InterruptedException {
         String vipsExecutable = "vips ";
-        // String vipsExecutable = "D:\\d\\vips\\vips\\vips-dev-w64-web-8.13.0\\vips-dev-8.13\\bin\\vips.exe ";
         String compression = "lzw"; // jpeg -Q 95
         String tileSize = "256";
 

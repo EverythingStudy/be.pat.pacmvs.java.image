@@ -5,10 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * File节点
- * @author wangf
- */
 @Data
 @Builder
 @AllArgsConstructor
