@@ -74,9 +74,9 @@ public class FileServiceImpl implements FileService {
                             return false;
                         }
                         //初始化状态集合
-                        AtomicReference<Integer> [] chunkStates =  new  AtomicReference[totalChunks];
+                        AtomicReference<Integer>[] chunkStates = new AtomicReference[totalChunks];
                         for (int i = 0; i < totalChunks; i++) {
-                            chunkStates[i].set(0);
+                            chunkStates[i] = new AtomicReference<>(0);
                         }
                         FILE_MAP_SYN.putIfAbsent(imageId, chunkStates);
                         // 检查并创建目录
