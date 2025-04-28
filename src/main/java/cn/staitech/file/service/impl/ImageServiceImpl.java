@@ -116,7 +116,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
             image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
             image.setImageCode(IdUtils.randomUUID());
-            image.setDelFlag(DataConstants.NOT_DELETED);
+            image.setDelFlag("1");
             image.setSource(ImageConstant.IMAGE_SOURCE_SERVER);
             image.setFormat(image.getImageName().substring(image.getImageName().lastIndexOf('.') + 1));
             // 插入数据 - 生成文件目录、文件名 start
@@ -170,7 +170,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             image.setCreateBy(userId);
             image.setSource(ImageConstant.IMAGE_SOURCE_UPLOAD);
             // 逻辑删除状态（0删除，1未删除）
-            image.setDelFlag(ImageConstant.NOT_DELETED);
+            image.setDelFlag("1");
             // 去掉文件扩展名的文件名称
             String fileName = FileUploadUtils.getFileName(fileInformation.getImageName());
             image.setFileName(fileName);
@@ -346,12 +346,12 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             imageDir.mkdirs();
         }
         String filePathStr = folderName + "/" + imageId + "/0.jpg";
-        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/thumbnail/" + filePathStr;
-        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/macro/" + filePathStr;
-        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/label/" + filePathStr;
-        String cacheURL = localFilePath+ ImageUtils.getFourNumber(image.getOrganizationId()) + "/cacheThumbnail/" + filePathStr;
+        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + "/thumbnail/" + filePathStr;
+        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator +  "/macro/" + filePathStr;
+        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator +  "/label/" + filePathStr;
+        String cacheURL = localFilePath + "/cacheThumbnail/" + filePathStr;
         if (image.getBizType() == 2) {
-            cacheURL = "/home/pat_saas/" + ImageUtils.getFourNumberNoSlide(image.getOrganizationId()) + "/Upload/" + image.getTopicName() + "/";
+            cacheURL = "/home/pat_saas/" + "/Upload/" + image.getTopicName() + "/";
         }
         image.setThumbUrl(thumbPath);
         image.setMacroUrl(macroPath);
@@ -373,7 +373,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         /*List<Image> images = getBaseMapper().selectList(Wrappers.query(Image.builder().md5(in.getMd5()).imageName(in.getImageName())
                 .status(ImageConstant.IMAGE_STATUS_ENABLE).delFlag(DataConstants.NOT_DELETED).build()));*/
         List<Image> images = getBaseMapper().selectList(Wrappers.query(Image.builder().imageName(in.getImageName())
-                .delFlag(ImageConstant.NOT_DELETED).build()));
+                .delFlag("1").build()));
         if (images.isEmpty()) {
             return true;
         }
