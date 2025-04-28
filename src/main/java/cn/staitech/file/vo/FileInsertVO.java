@@ -4,10 +4,12 @@ import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import javax.validation.constraints.NotNull;
 
+
 /**
- * 切片管理-原始切片、预测图片-选择切片
- *
- * @author admin
+ * @author mugw
+ * @version 1.0
+ * @description
+ * @date 2025/4/22 09:32:40
  */
 @Data
 public class FileInsertVO {

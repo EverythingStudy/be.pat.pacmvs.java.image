@@ -1,7 +1,6 @@
 package cn.staitech.file.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -51,11 +50,6 @@ public class Topic implements Serializable {
      */
     private Long updateBy;
 
-    /**
-     * 项目类型ID .
-     */
-    @TableField(value = "project_type_id")
-    private Integer projectTypeId;
 
     /**
      * 更新时间

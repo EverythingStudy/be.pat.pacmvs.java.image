@@ -1,10 +1,8 @@
 package cn.staitech.file.service;
 
 import cn.staitech.file.domain.Image;
-import org.openslide.OpenSlide;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 
 /**

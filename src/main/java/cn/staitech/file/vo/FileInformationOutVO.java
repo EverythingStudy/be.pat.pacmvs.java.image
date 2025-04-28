@@ -3,9 +3,6 @@ package cn.staitech.file.vo;
 import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 
-/**
- * @author admin
- */
 @Data
 public class FileInformationOutVO {
 

@@ -6,9 +6,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.Serializable;
 
-/**
- * @author wangf
- */
 @Data
 @Accessors(chain = true)
 public class Chunk implements Serializable {

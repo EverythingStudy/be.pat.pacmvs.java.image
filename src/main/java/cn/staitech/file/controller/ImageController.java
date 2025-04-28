@@ -5,6 +5,7 @@ import cn.staitech.file.domain.Image;
 import cn.staitech.file.service.ImageService;
 import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.vo.FileInsertVO;
+import com.sun.org.apache.bcel.internal.generic.I2F;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +40,7 @@ public class ImageController {
     @ApiOperation(value = "服务器选片")
     @PostMapping("/add")
     public R add(@Validated @RequestBody FileInsertVO vo) throws Exception {
-        List<Image> images = imageService.batchInsert(vo);
+        List<Image> images = imageService.batchFileHandle(vo);
         openSlideService.processThumb(images);
         return R.ok();
     }

@@ -191,12 +191,6 @@ public class Image implements Serializable {
     private String status;
 
     /**
-     * 删除标志（0代表存在 1代表删除）
-     */
-    @TableField(exist = false)
-    private String delFlag;
-
-    /**
      * 业务类型（1原始切片（默认）、2预测切片）
      */
     private Integer bizType;

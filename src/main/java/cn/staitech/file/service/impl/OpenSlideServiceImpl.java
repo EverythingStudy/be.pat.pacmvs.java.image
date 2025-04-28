@@ -10,7 +10,6 @@ import cn.staitech.file.service.ImageService;
 import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.util.FileUploadUtils;
 import cn.staitech.file.util.ImageConversionsionResp;
-import cn.staitech.file.util.ImageUtils;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -24,13 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.ResourceUtils;
 import org.springframework.web.multipart.MultipartFile;
+
 import javax.annotation.Resource;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -84,7 +83,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                         return t;
                     }
                 },
-                new RejectedExecutionHandler(){
+                new RejectedExecutionHandler() {
                     @Override
                     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                         // 丢弃任务，不抛出异常
@@ -129,17 +128,13 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
             int update = imageMapper.updateById(image);
 
-            String cacheKey = ImageUtils.getPathKey(String.valueOf(imageId));
 
             if (update > 0) {
                 log.info("小文件上传成功 imageid:{} ,imagePath:{}", imageId, imagePath);
-                // 存入redis
-                stringRedisTemplate.opsForValue().set(cacheKey, imagePath);
                 return imagePath;
             } else {
                 // 删除 redis
                 log.info("小文件上传失败 imageid:{} ,imagePath:{}", imageId, imagePath);
-                stringRedisTemplate.delete(cacheKey);
                 return null;
             }
         } catch (Exception e) {
@@ -342,6 +337,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
     /**
      * 创建缩略图
+     *
      * @param images
      * @throws Exception
      */
@@ -359,9 +355,14 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         }
     }
 
+    /**
+     * 创建缩略图
+     * @param image
+     * @throws Exception
+     */
     @Override
     public void processThumb(Image image) throws Exception {
-        if (ObjectUtil.isNotEmpty(image)){
+        if (ObjectUtil.isNotEmpty(image)) {
             List<Image> images = Arrays.asList(image);
             processThumb(images);
         }

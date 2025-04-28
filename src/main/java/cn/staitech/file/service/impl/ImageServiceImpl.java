@@ -1,8 +1,6 @@
 package cn.staitech.file.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.Snowflake;
 import cn.hutool.core.util.IdUtil;
 import cn.staitech.common.core.domain.R;
@@ -15,33 +13,27 @@ import cn.staitech.file.domain.Topic;
 import cn.staitech.file.mapper.ImageMapper;
 import cn.staitech.file.mapper.TopicMapper;
 import cn.staitech.file.service.ImageService;
-import cn.staitech.file.util.ImageUtils;
 import cn.staitech.file.vo.FileInformationOutVO;
 import cn.staitech.file.vo.FileInformationVO;
 import cn.staitech.file.vo.FileInsertVO;
 import cn.staitech.system.api.domain.SysUser;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.io.File;
-import java.text.SimpleDateFormat;
+import java.nio.file.Paths;
+import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
-
 
 /**
  * @author mugw
@@ -60,143 +52,265 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
     private ImageMapper imageMapper;
     @Resource
     private TopicMapper topicMapper;
-    @Resource
-    private RedisTemplate redisTemplate;
-    @Resource
-    private StringRedisTemplate stringRedisTemplate;
 
     private static Snowflake snowflake = IdUtil.getSnowflake();
 
-    // 项目启动时，初始化imagePath到缓存
-    @PostConstruct
-    public void init() {
-        loadingDictCache();
-    }
+    /**
+     * 批量处理文件插入请求
+     *
+     * 此方法负责接收一个包含文件信息的FileInsertVO对象，验证文件的有效性，
+     * 检查文件是否已存在于数据库中，然后创建并保存Image对象到数据库
+     *
+     * @param vo FileInsertVO对象，包含需要插入的文件信息和组织ID
+     * @return 返回保存的Image对象列表
+     * @throws Exception 如果文件处理过程中发生错误，则抛出异常
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<Image> batchFileHandle(FileInsertVO vo) throws Exception {
+        // 检查文件列表是否为空
+        if (vo == null || vo.getFileList() == null || vo.getFileList().length == 0) {
+            throw new IllegalArgumentException("图片文件绝对路径数组不可为空");
+        }
 
-    public void loadingDictCache() {
-        Set<String> keys = redisTemplate.keys(ImageUtils.PATH_IMAGE_KEY_ALL);
-        redisTemplate.delete(keys);
-        List<Image> images = imageMapper.selectList(Wrappers.query());
-        // 遍历image表，把所有行的imagePath存入redis
-        for (Image image : images) {
-            if (StringUtils.isNotBlank(image.getImagePath())) {
-                String cacheKey = ImageUtils.getPathKey(String.valueOf(image.getImageId()));
-                stringRedisTemplate.opsForValue().set(cacheKey, image.getImagePath());
+        // 验证文件路径有效性
+        for (String path : vo.getFileList()) {
+            File file = new File(path);
+            if (!file.exists() || !file.isFile() || !file.canRead()) {
+                throw new IllegalArgumentException("文件路径无效或不可访问: " + path);
             }
         }
-    }
 
-
-    @Override
-    public List<Image> batchInsert(FileInsertVO vo) throws Exception {
-
-        if (vo.getFileList()==null||vo.getFileList().length == 0){
-            throw new Exception("图片文件绝对路径数组不可为空");
+        // 检查文件是否已存在于数据库
+        List<String> filePaths = Arrays.asList(vo.getFileList());
+        int exists = imageMapper.selectCount(Wrappers.<Image>lambdaQuery()
+                .in(Image::getImagePath, filePaths)
+                .eq(Image::getOrganizationId, vo.getOrganizationId()));
+        if (exists>0) {
+            List<Image> existImages = imageMapper.selectList(Wrappers.<Image>lambdaQuery()
+                    .in(Image::getImagePath, filePaths)
+                    .eq(Image::getOrganizationId, vo.getOrganizationId()));
+            throw new DuplicateKeyException("服务器选片异常:["
+                    + existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", "))
+                    + "]文件已经存在");
         }
-        List<Image> existImages = imageMapper.selectList(Wrappers.<Image>lambdaQuery().in(Image::getImagePath, vo.getFileList()).eq(Image::getOrganizationId, vo.getOrganizationId()));
-        if (CollectionUtils.isNotEmpty(existImages)){
-            throw new DuplicateKeyException("服务器选片异常:[" + existImages.stream().map(Image::getImagePath).collect(Collectors.toList()) + "]文件已经存在");
-        }
+
         List<Image> images = new ArrayList<>();
-        for (String path : vo.getFileList()){
-            Long loginUser = SecurityUtils.getUserId();
+        for (String path : vo.getFileList()) {
             File file = new File(path);
             String imageName = file.getName();
-            Image image = new Image();
-            image.setBizType(vo.getBizType());
-            image.setOrganizationId(vo.getOrganizationId());
-            image.setImagePath(path);
-            image.setImageUrl(path);
-            image.setImageName(imageName);
-            image.setSize(String.valueOf(file.length()));
-            // 去掉文件扩展名的文件名称
-            image.setFileName(FileUploadUtils.getFileName(file.getName()));
-            image.setCreateBy(loginUser);
-            image.setUpdateBy(loginUser);
-            image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
-            image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
-            image.setImageCode(IdUtils.randomUUID());
-            image.setDelFlag(DataConstants.NOT_DELETED);
-            image.setSource(ImageConstant.IMAGE_SOURCE_SERVER);
-            image.setFormat(image.getImageName().substring(image.getImageName().lastIndexOf('.') + 1));
-            // 插入数据 - 生成文件目录、文件名 start
-            String folderName = DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN);
-            String filePathStr = folderName + "/" + snowflake.nextIdStr() + "/0.jpg";
-            String thumbPath = ImageConstant.THUMB_BASE_DIR + "/thumbnail/" + filePathStr;
-            String macroPath = ImageConstant.THUMB_BASE_DIR + "/macro/" + filePathStr;
-            String labelPath = ImageConstant.THUMB_BASE_DIR + "/label/" + filePathStr;
-            String cacheURL = localFilePath + "/cacheThumbnail/" + filePathStr;
-            image.setThumbUrl(thumbPath);
-            image.setMacroUrl(macroPath);
-            image.setLabelUrl(labelPath);
-            image.setCacheUrl(cacheURL);
-            parseFields(imageName,image);
+            Image image = createImageFromPath(vo.getOrganizationId(), path, imageName);
+            parseFields(image.getFileName(), image); // 解析文件名并设置相关字段
+            processImageCommon(image); // 处理图像的公共逻辑
             images.add(image);
         }
+
+        // 批量保存图像信息到数据库
         saveBatch(images);
+
         return images;
     }
 
     /**
-     * 上传文件前置信息,向数据库中增加一条图像信息,初始化,存入MD5等信息
+     * 根据文件路径创建 Image 对象
      *
-     * @param fileInformation
-     * @return
-     * @throws Exception
+     * 此方法负责根据给定的组织ID、文件路径和文件名创建一个Image对象，并设置其基本属性
+     *
+     * @param organizationId 组织ID，用于关联图像到特定的组织
+     * @param path 图像文件的绝对路径
+     * @param imageName 图像文件的名称
+     * @return 返回初始化后的Image对象
+     */
+    private Image createImageFromPath(Long organizationId, String path, String imageName) {
+        Image image = new Image();
+        image.setOrganizationId(organizationId);
+        image.setImagePath(path);
+        image.setImageUrl(path);
+        image.setImageName(imageName);
+        image.setSize(String.valueOf(new File(path).length()));
+        image.setFileName(FileUploadUtils.getFileName(imageName));
+        image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
+        image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
+        image.setSource(ImageConstant.IMAGE_SOURCE_SERVER);
+        return image;
+    }
+
+    /**
+     * 文件信息上传方法
+     * 该方法负责处理文件信息的上传，包括文件信息的验证、处理和保存
+     *
+     * @param fileInformation 文件信息输入对象，包含需要上传的文件相关信息
+     * @return 返回一个封装了处理结果的R对象，包括是否成功和附加信息
+     * @throws Exception 如果在处理过程中发生异常，则抛出Exception
      */
     @Override
-    @Transactional
-    public R<FileInformationOutVO> insert(FileInformationVO fileInformation) throws Exception {
-        // 项目类型
-        Integer bizType = fileInformation.getProjectTypeId() > Integer.valueOf(0) ? fileInformation.getProjectTypeId() : Integer.valueOf(1);
-        // 项目类型(为topic类型特殊处理)
-        // 向MySQL插入数据 - 生成文件目录、文件名等
-        // 1、 the first insert into image table get imageId
-        // 2、 Produce image`s paths  ->savePath()
-        // 3、 Update image table
-        // 4、Add Image to Redis
-        Long userId = SecurityUtils.getUserId();
+    public R<FileInformationOutVO> fileInformationUpload(FileInformationVO fileInformation) throws Exception {
+        // 检查输入的文件信息是否为空或无效
+        if (fileInformation == null || StringUtils.isBlank(fileInformation.getImageName())) {
+            return R.fail("文件信息不能为空");
+        }
+
         Image image = new Image();
-        // 浅拷贝，把req里面的值拷贝到image中，利用封装的SpringUtils，进行只有非null值覆盖
-        BeanUtil.copyProperties(fileInformation,image);
+        BeanUtil.copyProperties(fileInformation, image);
 
         try {
-            image.setBizType(bizType);
+            // 设置默认值
             image.setOrganizationId(fileInformation.getOrganizationId());
             image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
-            //image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
-            image.setImageCode(IdUtils.randomUUID());
-            image.setUpdateBy(userId);
-            image.setCreateBy(userId);
+            image.setProcessFlag(ImageConstant.IMAGE_PROCESS_UPLOADING);
             image.setSource(ImageConstant.IMAGE_SOURCE_UPLOAD);
-            // 逻辑删除状态（0删除，1未删除）
-            image.setDelFlag(ImageConstant.NOT_DELETED);
-            // 去掉文件扩展名的文件名称
-            String fileName = FileUploadUtils.getFileName(fileInformation.getImageName());
-            image.setFileName(fileName);
-            // 拆分图片名称字段
-            parseFields(fileInformation.getImageName(),image);
-            int insert = imageMapper.insert(image);
-            if (insert > 0) {
-                FileInformationOutVO out = new FileInformationOutVO();
-                out.setImageId(image.getImageId());
-                {
-                    // 初始化文件路径
-                    savePath(image);
-                    // 修改MySQL中图像信息
-                    imageMapper.updateById(image);
-                    // 存入redis
-                    String cacheKey = ImageUtils.getPathKey(String.valueOf(image.getImageId()));
-                    stringRedisTemplate.opsForValue().set(cacheKey, image.getImagePath());
-                }
-                return R.ok(out, "补充信息成功");
+
+            // 校验并处理文件名
+            String fileName = validateAndExtractFileName(fileInformation.getImageName());
+            if (fileName == null) {
+                return R.fail("文件名格式不正确");
             }
-        }catch (Exception e){
-            e.printStackTrace();
-            log.error("FileInformation信息创建异常：{};;{}",e.getMessage(),fileInformation);
-            throw e;
+            image.setFileName(fileName);
+
+            // 拆分图片名称字段
+            parseFields(fileName, image);
+
+            processImageCommon(image);
+
+            // 初始化文件路径
+            String imagePathDir = initializeFilePath(localFilePath, image.getOrganizationId(), image.getTopicName());
+            String imagePath = imagePathDir + File.separator + image.getImageName();
+            image.setImagePath(imagePath);
+            image.setImageUrl(imagePath);
+
+            // 创建目录
+            File imageDir = new File(imagePathDir);
+            if (!imageDir.exists()) {
+                if (!imageDir.mkdirs()) {
+                    log.error("无法创建目录: {}", imagePathDir);
+                    return R.fail("文件目录创建失败");
+                }
+            }
+
+            // 插入数据库
+            int insert = imageMapper.insert(image);
+            if (insert <= 0) {
+                log.error("插入数据库失败: {}", image);
+                return R.fail("文件信息保存失败");
+            }
+
+            // 构造返回值
+            FileInformationOutVO out = new FileInformationOutVO();
+            out.setImageId(image.getImageId());
+            return R.ok(out, "补充信息成功");
+
+        } catch (Exception e) {
+            log.error("[{}] 补充信息失败", fileInformation, e);
+            return R.fail("补充信息失败");
         }
-        return R.fail("补充信息失败");
+    }
+
+    /**
+     * 校验并提取文件名
+     * 该方法接受一个文件名字符串，验证其有效性并提取文件名
+     *
+     * @param imageName 文件名字符串
+     * @return 如果文件名有效，则返回提取后的文件名；否则返回null
+     */
+    private String validateAndExtractFileName(String imageName) {
+        if (StringUtils.isBlank(imageName)) {
+            return null;
+        }
+        String fileName = FileUploadUtils.getFileName(imageName);
+        if (StringUtils.isBlank(fileName)) {
+            return null;
+        }
+        return fileName;
+    }
+
+    /**
+     * 初始化文件路径
+     * 根据基础路径、组织ID和主题名称生成文件的保存路径
+     *
+     * @param basePath 基础路径
+     * @param organizationId 组织ID
+     * @param topicName 主题名称
+     * @return 返回生成的文件保存路径字符串
+     * @throws IllegalArgumentException 如果组织ID或主题名称为空，则抛出该异常
+     */
+    private String initializeFilePath(String basePath, Long organizationId, String topicName) {
+        if (organizationId == null || StringUtils.isBlank(topicName)) {
+            throw new IllegalArgumentException("组织ID或主题名称不能为空");
+        }
+        return Paths.get(basePath, getFourNumber(organizationId), topicName).toString();
+    }
+
+    /**
+     * 处理图像的通用方法
+     * 设置图像的基本信息，包括图像代码、更新者、创建者等，并生成相应的URL
+     *
+     * @param image 待处理的图像对象，包含图像的基本信息如名称、组织ID等
+     */
+    private void processImageCommon(Image image) {
+        // 获取用户ID并校验
+        Long userId = SecurityUtils.getUserId();
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID cannot be null");
+        }
+
+        // 设置图像的基本信息
+        image.setImageCode(IdUtils.randomUUID());
+        image.setUpdateBy(userId);
+        image.setCreateBy(userId);
+
+        // 提取文件格式并校验
+        String imageName = image.getImageName();
+        if (imageName == null || !imageName.contains(".")) {
+            throw new IllegalArgumentException("Image name is invalid or missing file extension");
+        }
+        image.setFormat(imageName.substring(imageName.lastIndexOf('.') + 1));
+
+        // 构造文件路径
+        String filePathStr = generateFilePathStr();
+        String organizationPath = generateOrganizationPath(image.getOrganizationId());
+
+        // 设置不同类型的URL
+        image.setThumbUrl(generatePath(organizationPath, "thumbnail", filePathStr));
+        image.setMacroUrl(generatePath(organizationPath, "macro", filePathStr));
+        image.setLabelUrl(generatePath(organizationPath, "label", filePathStr));
+        image.setCacheUrl(generatePath(organizationPath, "cacheThumbnail", filePathStr));
+    }
+
+    /**
+     * 生成文件路径字符串
+     * 使用Snowflake算法生成一个唯一的ID作为文件名，确保文件名不重复
+     *
+     * @return 文件路径字符串，格式为唯一的ID加上固定的文件名"0.jpg"
+     */
+    private String generateFilePathStr() {
+        return snowflake.nextIdStr() + File.separator + "0.jpg";
+    }
+
+    /**
+     * 生成组织路径
+     * 根据组织ID生成路径，用于存储该组织相关的图像文件
+     *
+     * @param organizationId 组织的唯一标识符，用于生成路径
+     * @return 组织路径字符串，格式为固定的基目录加上组织ID的前四位数字
+     */
+    private String generateOrganizationPath(Long organizationId) {
+        if (organizationId == null) {
+            throw new IllegalArgumentException("Organization ID cannot be null");
+        }
+        return ImageConstant.THUMB_BASE_DIR + File.separator + getFourNumber(organizationId);
+    }
+
+    /**
+     * 生成具体路径
+     * 根据基础路径、类型和文件路径字符串生成完整的路径
+     *
+     * @param basePath 基础路径，可以是组织路径或其他基础目录路径
+     * @param type 文件类型，如"thumbnail"、"macro"等
+     * @param filePathStr 文件路径字符串，包含文件名
+     * @return 完整的路径字符串，格式为基础路径加上类型和文件路径字符串
+     */
+    private String generatePath(String basePath, String type, String filePathStr) {
+        return basePath + File.separator + type + File.separator + filePathStr;
     }
 
     /**
@@ -204,7 +318,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
      *
      * @param input 输入字符串
      */
-    private Image parseFields(String input,Image image) {
+    private Image parseFields(String input, Image image) {
         // 根据空格拆分字符串为三个主要部分
         String[] parts = input.split(" ");
         // 文件名解析状态:默认1成功
@@ -241,17 +355,17 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     String gender = groupNumberAndGender.substring(groupNumberAndGender.length() - 1);
                     image.setGroupCode(groupNumber);
                     image.setSexFlag(gender);
-                } else{
+                } else {
                     log.error("组号和性别格式无效: {}", groupNumberAndGender);
                     image.setAnalyzeStatus(ImageConstant.NUMBER_0);
                 }
-            } else{
-                parseSlideCode(input,image);
+            } else {
+                parseSlideCode(input, image);
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             image.setAnalyzeStatus(ImageConstant.NUMBER_0);
-            log.error("文件名:[{}]解析失败：[{}]",input,e.getMessage());
-            if (log.isDebugEnabled()){
+            log.error("文件名:[{}]解析失败：[{}]", input, e.getMessage());
+            if (log.isDebugEnabled()) {
                 e.printStackTrace();
             }
         }
@@ -266,156 +380,140 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
      * @return 更新后的图像对象
      * @throws Exception 如果解析失败，抛出异常
      */
-    private Image parseSlideCode(String input, Image image)throws Exception{
-        // 根据波浪号拆分字符串为五个主要部分
-        input = StringUtils.replace(input," ","");
-        StringUtils.trimToEmpty(input);
-        String[] parts = input.split("~");
-        // 文件名解析状态: 默认1成功
-        image.setAnalyzeStatus(ImageConstant.NUMBER_1);
-        if (parts.length == 4 || parts.length == 5) {
-            // 解析专题号部分
-            String topicNumber = parts[0].trim();
-            image.setTopicName(topicNumber);
-            Topic topic = getTopic(topicNumber);
-            if (topic != null) {
-                image.setTopicId(topic.getTopicId());
+    private Image parseSlideCode(String input, Image image) throws Exception {
+        // 输入参数校验
+        if (input == null || input.isEmpty()) {
+            log.error("切片编号解析失败：输入为空");
+            image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+            return image;
+        }
+        try {
+            // 根据波浪号拆分字符串为五个主要部分
+            input = StringUtils.replace(input, " ", "");
+            StringUtils.trimToEmpty(input);
+            String[] parts = input.split("~");
+            // 文件名解析状态: 默认1成功
+            image.setAnalyzeStatus(ImageConstant.NUMBER_1);
+            if (parts.length == 4 || parts.length == 5) {
+                // 解析专题号部分
+                String topicNumber = parts[0].trim();
+                image.setTopicName(topicNumber);
+                Topic topic = getTopic(topicNumber);
+                if (topic != null) {
+                    image.setTopicId(topic.getTopicId());
+                } else {
+                    log.error("切片编号：[{}], 未找到专题信息，专题号: {}", input, topicNumber);
+                    image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                }
+                // 解析动物号和蜡块号部分
+                String animalCode = parts[1].trim();
+                image.setAnimalCode(animalCode);
+                String waxBlock = parts[2].trim();
+                image.setWaxCode(waxBlock);
+                // 解析组号和性别部分
+                String groupNumberAndGender = parts[3].trim();
+                // 解析组号和性别部分
+                GroupAndSex parsedGroupNumber = extractGroupNumber(groupNumberAndGender);
+                if (parsedGroupNumber == null) {
+                    log.error("切片编号：[{}], 组号和性别格式无效: {}", input, groupNumberAndGender);
+                    image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                    return image;
+                }
+                image.setGroupCode(parsedGroupNumber.getGroupCode());
+                image.setSexFlag(parsedGroupNumber.getSexFlag());
             } else {
-                log.error("切片编号：[{}], 未找到专题信息，专题号: {}",input, topicNumber);
+                log.error("切片编号：[{}],输入格式无效", input);
                 image.setAnalyzeStatus(ImageConstant.NUMBER_0);
             }
-            // 解析动物号和蜡块号部分
-            String animalCode = parts[1].trim();
-            image.setAnimalCode(animalCode);
-            String waxBlock = parts[2].trim();
-            image.setWaxCode(waxBlock);
-            // 解析组号和性别部分
-            String groupNumberAndGender = parts[3].trim();
-            if (groupNumberAndGender.contains("_")){
-                groupNumberAndGender = groupNumberAndGender.substring(0, groupNumberAndGender.indexOf("_"));
-            }
-            String groupNumberAndGenderEnd = StringUtils.substring(groupNumberAndGender,groupNumberAndGender.length()-1);
-            if (groupNumberAndGender.length() >= 2 && ("M".equals(groupNumberAndGenderEnd) || "F".equals(groupNumberAndGenderEnd))) {
-                String groupNumber = groupNumberAndGender.substring(0, groupNumberAndGender.length() - 1);
-                String gender = groupNumberAndGender.substring(groupNumberAndGender.length() - 1);
-                image.setGroupCode(groupNumber);
-                image.setSexFlag(gender);
-            } else {
-                log.error("切片编号：[{}], 组号和性别格式无效: {}", input,groupNumberAndGender);
-                image.setAnalyzeStatus(ImageConstant.NUMBER_0);
-            }
-
-        } else {
-            log.error("切片编号：[{}],输入格式无效", input);
+        } catch (Exception e) {
+            log.error("切片编号解析异常：{}, 输入: {}", e.getMessage(), input, e);
             image.setAnalyzeStatus(ImageConstant.NUMBER_0);
         }
         return image;
     }
 
-    /**
-     * 文件前置信息上传-初始化文件路径
-     *
-     * @param image
-     * @return
-     */
-    public Image savePath(Image image) {
-        image.setFormat(image.getImageName().substring(image.getImageName().lastIndexOf('.') + 1));
-        image.setCreateBy(SecurityUtils.getUserId());
-        image.setCreateTime(new Date());
 
-        // 插入数据 - 生成文件目录、文件名 start
-        Long imageId = image.getImageId();
-        //时间格式化格式
-        Date currentTime = new Date();
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmmssSSS");
-        String filePrefix = simpleDateFormat.format(currentTime);
-        //拼接新的文件名
-        //String newFileName = filePrefix + "_" + imageId + "." + image.getFormat();
-        simpleDateFormat = new SimpleDateFormat("yyyyMMdd");
-        String folderName = simpleDateFormat.format(currentTime);
-        // String imagePathDir = localFilePath + "/" + image.getTopicName() + "/big/" + folderName + "/";
-        String imagePathDir = localFilePath + "/" + image.getTopicName() + "/";
-        /*String imagePath = imagePathDir + newFileName;
-        String imageURL = imagePathDir + newFileName;*/
-        String imagePath = imagePathDir + image.getImageName();
-        String imageURL = imagePathDir + image.getImageName();
-        image.setImagePath(imagePath);
-        image.setImageUrl(imageURL);
-        File imageDir = new File(imagePathDir);
-        if (!imageDir.exists() && !imageDir.isDirectory()) {
-            imageDir.mkdirs();
+    // 提取公共方法：解析组号和性别
+    private GroupAndSex extractGroupNumber(String groupNumberAndGender) {
+        if (groupNumberAndGender == null || groupNumberAndGender.isEmpty()) {
+            return null;
         }
-        String filePathStr = folderName + "/" + imageId + "/0.jpg";
-        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/thumbnail/" + filePathStr;
-        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/macro/" + filePathStr;
-        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/label/" + filePathStr;
-        String cacheURL = localFilePath+ ImageUtils.getFourNumber(image.getOrganizationId()) + "/cacheThumbnail/" + filePathStr;
-        if (image.getBizType() == 2) {
-            cacheURL = "/home/pat_saas/" + ImageUtils.getFourNumberNoSlide(image.getOrganizationId()) + "/Upload/" + image.getTopicName() + "/";
-        }
-        image.setThumbUrl(thumbPath);
-        image.setMacroUrl(macroPath);
-        image.setLabelUrl(labelPath);
-        image.setCacheUrl(cacheURL);
 
-        return image;
+        int underscoreIndex = groupNumberAndGender.indexOf("_");
+        if (underscoreIndex != -1) {
+            groupNumberAndGender = groupNumberAndGender.substring(0, underscoreIndex);
+        }
+
+        String gender = groupNumberAndGender.substring(groupNumberAndGender.length() - 1);
+        if (!"M".equals(gender) && !"F".equals(gender)) {
+            return null;
+        }
+
+        String groupCode = groupNumberAndGender.substring(0, groupNumberAndGender.length() - 1);
+        return new GroupAndSex(groupCode, gender);
     }
 
 
-    /**
-     * 校验文件MD5及文件名是否存在
-     *
-     * @param in
-     * @return
-     */
-    @Override
-    public boolean checkImageNameAndMd5(FileInformationVO in) {
-        /*List<Image> images = getBaseMapper().selectList(Wrappers.query(Image.builder().md5(in.getMd5()).imageName(in.getImageName())
-                .status(ImageConstant.IMAGE_STATUS_ENABLE).delFlag(DataConstants.NOT_DELETED).build()));*/
-        List<Image> images = getBaseMapper().selectList(Wrappers.query(Image.builder().imageName(in.getImageName())
-                .delFlag(ImageConstant.NOT_DELETED).build()));
-        if (images.isEmpty()) {
-            return true;
+    // 内部类：用于封装组号和性别解析结果
+    private static class GroupAndSex {
+        private final String groupCode;
+        private final String sexFlag;
+
+        public GroupAndSex(String groupCode, String sexFlag) {
+            this.groupCode = groupCode;
+            this.sexFlag = sexFlag;
         }
-        return false;
+
+        public String getGroupCode() {
+            return groupCode;
+        }
+
+        public String getSexFlag() {
+            return sexFlag;
+        }
     }
 
 
-    /**
-     * 处理专题数据
-     * @param topicName
-     * @return
-     */
-    @Override
-    public Topic getTopic(String topicName){
-        SysUser sysUser = SecurityUtils.getLoginUser().getSysUser();
-        Long userId = sysUser.getUserId();
-
-        Topic topic = Topic.builder()
-                .topicName(topicName)
-                .organizationId(sysUser.getOrganizationId())
-                .build();
-
-        QueryWrapper queryWrap = new QueryWrapper(topic);
-        Topic qTopic = topicMapper.selectOne(queryWrap);
-
-        // 有则返回
-        if (qTopic != null) {
-            return qTopic;
-        } else { // 无则添加
-            topic.setCreateBy(userId);
-            topic.setUpdateBy(userId);
-            topic.setCreateTime(new Date());
-            topic.setUpdateTime(new Date());
-            topic.setOrganizationId(sysUser.getOrganizationId());
-            topic.setTopicName(topicName);
-            try {
-                topicMapper.insert(topic);
-            } catch (DuplicateKeyException e) {
-                log.info("添加专题-主键冲突 {}", e);
-                return topicMapper.selectOne(queryWrap);
+    private Topic getTopic(String topicName) {
+        // 校验输入参数
+        if (topicName == null || topicName.isEmpty()) {
+            throw new IllegalArgumentException("专题不可为空");
+        }
+        try {
+            // 获取当前登录用户信息
+            SysUser sysUser = SecurityUtils.getLoginUser().getSysUser();
+            if (sysUser == null) {
+                throw new IllegalStateException("No user is logged in.");
             }
+
+            Long userId = sysUser.getUserId();
+            if (userId == null) {
+                throw new IllegalStateException("User ID cannot be null.");
+            }
+            Topic topic = topicMapper.selectOne(Wrappers.<Topic>lambdaQuery().eq(Topic::getTopicName, topicName)
+                    .eq(Topic::getOrganizationId, sysUser.getOrganizationId()));
+            if (topic == null) {
+                topic = Topic.builder().topicName(topicName).organizationId(sysUser.getOrganizationId()).createBy(userId)
+                        .updateBy(userId).createTime(new Date()).updateTime(new Date()).build();
+                topicMapper.insert(topic);
+            }
+            return topic;
+        } catch (Exception e) {
+            // 捕获异常并记录日志
+            log.error("Error occurred while getting or creating topic: {}", topicName, e);
+            throw e; // 根据需求决定是否重新抛出异常
         }
-        return topic;
+    }
+
+    /**
+     * 生成四位数的文件夹路径
+     * @param number
+     * @return
+     */
+    public static String getFourNumber(Long number) {
+        NumberFormat formatter = NumberFormat.getNumberInstance();
+        formatter.setMinimumIntegerDigits(3);
+        formatter.setGroupingUsed(false);
+        return "C" + formatter.format(number) + File.separator +"Slides";
     }
 }

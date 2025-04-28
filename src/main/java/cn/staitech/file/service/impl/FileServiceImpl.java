@@ -12,9 +12,13 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
 import cn.staitech.file.util.FileUploadUtils;
 
 /**
@@ -27,7 +31,7 @@ import cn.staitech.file.util.FileUploadUtils;
 @Service
 public class FileServiceImpl implements FileService {
 
-    public static final Map<Long, List<Integer>> FILE_MAP_SYN = new ConcurrentHashMap<>();
+    public static final Map<Long, AtomicReference<Integer>[]> FILE_MAP_SYN = new ConcurrentHashMap<>();
 
     @Resource
     private ImageMapper imageMapper;
@@ -69,9 +73,10 @@ public class FileServiceImpl implements FileService {
                             log.warn("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}] Total chunks cannot be negative",chunk.getImageId(), chunk.getChunkNumber(), totalChunks);
                             return false;
                         }
-                        List<Integer> chunkStates = new ArrayList<>(totalChunks);
+                        //初始化状态集合
+                        AtomicReference<Integer>[] chunkStates = new AtomicReference[totalChunks];
                         for (int i = 0; i < totalChunks; i++) {
-                            chunkStates.add(0);
+                            chunkStates[i] = new AtomicReference<>(0);
                         }
                         FILE_MAP_SYN.putIfAbsent(imageId, chunkStates);
                         // 检查并创建目录
@@ -111,13 +116,11 @@ public class FileServiceImpl implements FileService {
             return false;
         }
         // 更新并发控制变量
-        List<Integer> chunks = FILE_MAP_SYN.get(imageId);
+        AtomicReference<Integer>[] chunkStates = FILE_MAP_SYN.get(imageId);
         int chunkNumber = chunk.getChunkNumber();
-        synchronized (chunks) {
-            chunks.set(chunkNumber, 1);
-            log.debug("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],更新分片状态列表 [{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(),chunk);
-        }
-        int temp = chunks.stream().filter(i -> i == 1).mapToInt(i -> 1).sum();
+        chunkStates[chunkNumber].compareAndSet(0, 1);
+        log.debug("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],更新分片状态列表 [{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(),chunk);
+        int temp = Arrays.stream(chunkStates).collect(Collectors.toList()).stream().filter(i -> i.get() == 1).mapToInt(i -> 1).sum();
         log.info("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],分片文件大小:[{}]，上传进度:[{}/{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(), chunk.getChunkSize(), temp, chunk.getTotalChunks());
         // 当所有文件块上传完成后，更新图像处理状态，并异步生成缩略图
         if (temp == chunk.getTotalChunks()) {
