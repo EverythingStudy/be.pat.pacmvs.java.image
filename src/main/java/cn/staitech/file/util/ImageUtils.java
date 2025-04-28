@@ -1,6 +1,7 @@
 package cn.staitech.file.util;
 
 import java.io.IOException;
+import java.text.NumberFormat;
 
 /**
  * @author mugw
@@ -28,5 +29,33 @@ public class ImageUtils {
     public static String getPathKey(String configKey) {
         return PATH_IMAGE_KEY + configKey;
     }
+
+    /**
+     * 数字格式化
+     *
+     * @param number
+     * @return C012\Slides
+     */
+    public static String getFourNumber(Long number) {
+        NumberFormat formatter = NumberFormat.getNumberInstance();
+        formatter.setMinimumIntegerDigits(3);
+        formatter.setGroupingUsed(false);
+        // return "C" + formatter.format(number) + File.separator + "Slides";
+        return "C" + formatter.format(number) + "/Slides";
+    }
+
+    /**
+     * 数字格式化
+     *
+     * @param number
+     * @return C012
+     */
+    public static String getFourNumberNoSlide(Long number) {
+        NumberFormat formatter = NumberFormat.getNumberInstance();
+        formatter.setMinimumIntegerDigits(3);
+        formatter.setGroupingUsed(false);
+        return "C" + formatter.format(number);
+    }
+
 
 }

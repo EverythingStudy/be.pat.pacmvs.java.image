@@ -346,12 +346,12 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             imageDir.mkdirs();
         }
         String filePathStr = folderName + "/" + imageId + "/0.jpg";
-        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + "/thumbnail/" + filePathStr;
-        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator +  "/macro/" + filePathStr;
-        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator +  "/label/" + filePathStr;
-        String cacheURL = localFilePath + "/cacheThumbnail/" + filePathStr;
+        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/thumbnail/" + filePathStr;
+        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/macro/" + filePathStr;
+        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/label/" + filePathStr;
+        String cacheURL = localFilePath+ ImageUtils.getFourNumber(image.getOrganizationId()) + "/cacheThumbnail/" + filePathStr;
         if (image.getBizType() == 2) {
-            cacheURL = "/home/pat_saas/" + "/Upload/" + image.getTopicName() + "/";
+            cacheURL = "/home/pat_saas/" + ImageUtils.getFourNumberNoSlide(image.getOrganizationId()) + "/Upload/" + image.getTopicName() + "/";
         }
         image.setThumbUrl(thumbPath);
         image.setMacroUrl(macroPath);
