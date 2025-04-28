@@ -1,5 +1,6 @@
 package cn.staitech.file.util;
 
+import java.io.File;
 import java.io.IOException;
 import java.text.NumberFormat;
 
@@ -40,8 +41,7 @@ public class ImageUtils {
         NumberFormat formatter = NumberFormat.getNumberInstance();
         formatter.setMinimumIntegerDigits(3);
         formatter.setGroupingUsed(false);
-        // return "C" + formatter.format(number) + File.separator + "Slides";
-        return "C" + formatter.format(number) + "/Slides";
+        return "C" + formatter.format(number) + File.separator +"Slides";
     }
 
     /**

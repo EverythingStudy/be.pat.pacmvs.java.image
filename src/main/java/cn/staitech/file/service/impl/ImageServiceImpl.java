@@ -32,6 +32,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import java.io.File;
@@ -90,15 +91,15 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
     @Override
     public List<Image> batchInsert(FileInsertVO vo) throws Exception {
 
-        if (vo.getFileList()==null||vo.getFileList().length == 0){
+        if (vo.getFileList() == null || vo.getFileList().length == 0) {
             throw new Exception("图片文件绝对路径数组不可为空");
         }
         List<Image> existImages = imageMapper.selectList(Wrappers.<Image>lambdaQuery().in(Image::getImagePath, vo.getFileList()).eq(Image::getOrganizationId, vo.getOrganizationId()));
-        if (CollectionUtils.isNotEmpty(existImages)){
+        if (CollectionUtils.isNotEmpty(existImages)) {
             throw new DuplicateKeyException("服务器选片异常:[" + existImages.stream().map(Image::getImagePath).collect(Collectors.toList()) + "]文件已经存在");
         }
         List<Image> images = new ArrayList<>();
-        for (String path : vo.getFileList()){
+        for (String path : vo.getFileList()) {
             Long loginUser = SecurityUtils.getUserId();
             File file = new File(path);
             String imageName = file.getName();
@@ -122,15 +123,15 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             // 插入数据 - 生成文件目录、文件名 start
             String folderName = DateUtil.format(new Date(), DatePattern.PURE_DATE_PATTERN);
             String filePathStr = folderName + "/" + snowflake.nextIdStr() + "/0.jpg";
-            String thumbPath = ImageConstant.THUMB_BASE_DIR + "/thumbnail/" + filePathStr;
-            String macroPath = ImageConstant.THUMB_BASE_DIR + "/macro/" + filePathStr;
-            String labelPath = ImageConstant.THUMB_BASE_DIR + "/label/" + filePathStr;
-            String cacheURL = localFilePath + "/cacheThumbnail/" + filePathStr;
+            String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "thumbnail" + File.separator + filePathStr;
+            String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "macro" + File.separator + filePathStr;
+            String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "label" + File.separator + filePathStr;
+            String cacheURL = localFilePath + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "cacheThumbnail" + File.separator + filePathStr;
             image.setThumbUrl(thumbPath);
             image.setMacroUrl(macroPath);
             image.setLabelUrl(labelPath);
             image.setCacheUrl(cacheURL);
-            parseFields(imageName,image);
+            parseFields(imageName, image);
             images.add(image);
         }
         saveBatch(images);
@@ -158,7 +159,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         Long userId = SecurityUtils.getUserId();
         Image image = new Image();
         // 浅拷贝，把req里面的值拷贝到image中，利用封装的SpringUtils，进行只有非null值覆盖
-        BeanUtil.copyProperties(fileInformation,image);
+        BeanUtil.copyProperties(fileInformation, image);
 
         try {
             image.setBizType(bizType);
@@ -175,7 +176,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             String fileName = FileUploadUtils.getFileName(fileInformation.getImageName());
             image.setFileName(fileName);
             // 拆分图片名称字段
-            parseFields(fileInformation.getImageName(),image);
+            parseFields(fileInformation.getImageName(), image);
             int insert = imageMapper.insert(image);
             if (insert > 0) {
                 FileInformationOutVO out = new FileInformationOutVO();
@@ -191,9 +192,9 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 }
                 return R.ok(out, "补充信息成功");
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
-            log.error("FileInformation信息创建异常：{};;{}",e.getMessage(),fileInformation);
+            log.error("FileInformation信息创建异常：{};;{}", e.getMessage(), fileInformation);
             throw e;
         }
         return R.fail("补充信息失败");
@@ -204,7 +205,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
      *
      * @param input 输入字符串
      */
-    private Image parseFields(String input,Image image) {
+    private Image parseFields(String input, Image image) {
         // 根据空格拆分字符串为三个主要部分
         String[] parts = input.split(" ");
         // 文件名解析状态:默认1成功
@@ -241,17 +242,17 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     String gender = groupNumberAndGender.substring(groupNumberAndGender.length() - 1);
                     image.setGroupCode(groupNumber);
                     image.setSexFlag(gender);
-                } else{
+                } else {
                     log.error("组号和性别格式无效: {}", groupNumberAndGender);
                     image.setAnalyzeStatus(ImageConstant.NUMBER_0);
                 }
-            } else{
-                parseSlideCode(input,image);
+            } else {
+                parseSlideCode(input, image);
             }
-        }catch(Exception e){
+        } catch (Exception e) {
             image.setAnalyzeStatus(ImageConstant.NUMBER_0);
-            log.error("文件名:[{}]解析失败：[{}]",input,e.getMessage());
-            if (log.isDebugEnabled()){
+            log.error("文件名:[{}]解析失败：[{}]", input, e.getMessage());
+            if (log.isDebugEnabled()) {
                 e.printStackTrace();
             }
         }
@@ -266,9 +267,9 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
      * @return 更新后的图像对象
      * @throws Exception 如果解析失败，抛出异常
      */
-    private Image parseSlideCode(String input, Image image)throws Exception{
+    private Image parseSlideCode(String input, Image image) throws Exception {
         // 根据波浪号拆分字符串为五个主要部分
-        input = StringUtils.replace(input," ","");
+        input = StringUtils.replace(input, " ", "");
         StringUtils.trimToEmpty(input);
         String[] parts = input.split("~");
         // 文件名解析状态: 默认1成功
@@ -281,7 +282,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             if (topic != null) {
                 image.setTopicId(topic.getTopicId());
             } else {
-                log.error("切片编号：[{}], 未找到专题信息，专题号: {}",input, topicNumber);
+                log.error("切片编号：[{}], 未找到专题信息，专题号: {}", input, topicNumber);
                 image.setAnalyzeStatus(ImageConstant.NUMBER_0);
             }
             // 解析动物号和蜡块号部分
@@ -291,17 +292,17 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             image.setWaxCode(waxBlock);
             // 解析组号和性别部分
             String groupNumberAndGender = parts[3].trim();
-            if (groupNumberAndGender.contains("_")){
+            if (groupNumberAndGender.contains("_")) {
                 groupNumberAndGender = groupNumberAndGender.substring(0, groupNumberAndGender.indexOf("_"));
             }
-            String groupNumberAndGenderEnd = StringUtils.substring(groupNumberAndGender,groupNumberAndGender.length()-1);
+            String groupNumberAndGenderEnd = StringUtils.substring(groupNumberAndGender, groupNumberAndGender.length() - 1);
             if (groupNumberAndGender.length() >= 2 && ("M".equals(groupNumberAndGenderEnd) || "F".equals(groupNumberAndGenderEnd))) {
                 String groupNumber = groupNumberAndGender.substring(0, groupNumberAndGender.length() - 1);
                 String gender = groupNumberAndGender.substring(groupNumberAndGender.length() - 1);
                 image.setGroupCode(groupNumber);
                 image.setSexFlag(gender);
             } else {
-                log.error("切片编号：[{}], 组号和性别格式无效: {}", input,groupNumberAndGender);
+                log.error("切片编号：[{}], 组号和性别格式无效: {}", input, groupNumberAndGender);
                 image.setAnalyzeStatus(ImageConstant.NUMBER_0);
             }
 
@@ -330,11 +331,10 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmmssSSS");
         String filePrefix = simpleDateFormat.format(currentTime);
         //拼接新的文件名
-        //String newFileName = filePrefix + "_" + imageId + "." + image.getFormat();
         simpleDateFormat = new SimpleDateFormat("yyyyMMdd");
         String folderName = simpleDateFormat.format(currentTime);
-        // String imagePathDir = localFilePath + "/" + image.getTopicName() + "/big/" + folderName + "/";
-        String imagePathDir = localFilePath + "/" + image.getTopicName() + "/";
+        String imagePathDir = localFilePath + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) +
+                File.separator + image.getTopicName() + File.separator;
         /*String imagePath = imagePathDir + newFileName;
         String imageURL = imagePathDir + newFileName;*/
         String imagePath = imagePathDir + image.getImageName();
@@ -345,14 +345,11 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         if (!imageDir.exists() && !imageDir.isDirectory()) {
             imageDir.mkdirs();
         }
-        String filePathStr = folderName + "/" + imageId + "/0.jpg";
-        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/thumbnail/" + filePathStr;
-        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/macro/" + filePathStr;
-        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + "/label/" + filePathStr;
-        String cacheURL = localFilePath+ ImageUtils.getFourNumber(image.getOrganizationId()) + "/cacheThumbnail/" + filePathStr;
-        if (image.getBizType() == 2) {
-            cacheURL = "/home/pat_saas/" + ImageUtils.getFourNumberNoSlide(image.getOrganizationId()) + "/Upload/" + image.getTopicName() + "/";
-        }
+        String filePathStr = folderName + File.separator + imageId + File.separator + "0.jpg";
+        String thumbPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "thumbnail" + File.separator + filePathStr;
+        String macroPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "macro" + File.separator + filePathStr;
+        String labelPath = ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "label" + File.separator + filePathStr;
+        String cacheURL = localFilePath + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "cacheThumbnail" + File.separator + filePathStr;
         image.setThumbUrl(thumbPath);
         image.setMacroUrl(macroPath);
         image.setLabelUrl(labelPath);
@@ -383,11 +380,12 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
 
     /**
      * 处理专题数据
+     *
      * @param topicName
      * @return
      */
     @Override
-    public Topic getTopic(String topicName){
+    public Topic getTopic(String topicName) {
         SysUser sysUser = SecurityUtils.getLoginUser().getSysUser();
         Long userId = sysUser.getUserId();
 
