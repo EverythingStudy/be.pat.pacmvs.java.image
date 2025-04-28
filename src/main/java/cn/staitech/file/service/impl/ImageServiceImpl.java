@@ -174,7 +174,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
 
             // 初始化文件路径
             String imagePathDir = initializeFilePath(localFilePath, image.getOrganizationId(), image.getTopicName());
-            String imagePath = imagePathDir + image.getImageName();
+            String imagePath = imagePathDir + File.separator + image.getImageName();
             image.setImagePath(imagePath);
             image.setImageUrl(imagePath);
 
