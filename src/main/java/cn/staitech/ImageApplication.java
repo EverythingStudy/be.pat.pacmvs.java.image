@@ -4,6 +4,7 @@ import cn.staitech.common.security.annotation.EnableCustomConfig;
 import cn.staitech.common.security.annotation.EnableRyFeignClients;
 import cn.staitech.common.swagger.annotation.EnableCustomSwagger2;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.seata.spring.boot.autoconfigure.SeataAutoConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -28,7 +29,7 @@ import java.util.TimeZone;
 @EnableCustomConfig
 @EnableCustomSwagger2
 @EnableRyFeignClients
-@SpringBootApplication
+@SpringBootApplication(exclude = {SeataAutoConfiguration.class})
 @EnableElasticsearchRepositories(basePackages = {"cn.staitech.common.log.elasticsearchRepositories"})
 @EnableDiscoveryClient
 @EnableFeignClients
