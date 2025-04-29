@@ -60,6 +60,10 @@ public class FileServiceImpl implements FileService {
         Long imageId = chunk.getImageId();
         // 根据图像ID查询图像信息
         Image image = imageMapper.selectById(imageId);
+        if (image == null){
+            log.info("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}] 查询到image数据为null", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks());
+            return false;
+        }
         // 如果图像状态为启用，则直接返回成功
         if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_ENABLE)) {
             return true;
