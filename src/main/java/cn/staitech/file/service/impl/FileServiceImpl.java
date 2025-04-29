@@ -1,20 +1,24 @@
 package cn.staitech.file.service.impl;
 
+import cn.hutool.core.collection.ConcurrentHashSet;
+import cn.hutool.core.date.DateUtil;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.mapper.ImageMapper;
 import cn.staitech.file.service.FileService;
 import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.vo.Chunk;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+
 import javax.annotation.Resource;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -70,7 +74,7 @@ public class FileServiceImpl implements FileService {
                     try {
                         int totalChunks = chunk.getTotalChunks();
                         if (totalChunks < 0) {
-                            log.warn("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}] Total chunks cannot be negative",chunk.getImageId(), chunk.getChunkNumber(), totalChunks);
+                            log.warn("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}] Total chunks cannot be negative", chunk.getImageId(), chunk.getChunkNumber(), totalChunks);
                             return false;
                         }
                         //初始化状态集合
@@ -85,8 +89,8 @@ public class FileServiceImpl implements FileService {
                         file.createNewFile();
                         log.info("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],创建文件 [{}] 及分片状态列表成功", chunk.getImageId(), chunk.getChunkNumber(), totalChunks, path);
                     } catch (IOException e) {
-                        log.error("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}] 创建文件时异常",chunk.getImageId(), chunk.getChunkNumber(), e.getMessage());
-                        if (log.isDebugEnabled()){
+                        log.error("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}] 创建文件时异常", chunk.getImageId(), chunk.getChunkNumber(), e.getMessage());
+                        if (log.isDebugEnabled()) {
                             e.printStackTrace();
                         }
                         // 清理无效条目
@@ -119,12 +123,12 @@ public class FileServiceImpl implements FileService {
         AtomicReference<Integer>[] chunkStates = FILE_MAP_SYN.get(imageId);
         int chunkNumber = chunk.getChunkNumber();
         chunkStates[chunkNumber].compareAndSet(0, 1);
-        log.debug("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],更新分片状态列表 [{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(),chunk);
+        log.debug("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],更新分片状态列表 [{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(), chunk);
         int temp = Arrays.stream(chunkStates).collect(Collectors.toList()).stream().filter(i -> i.get() == 1).mapToInt(i -> 1).sum();
         log.info("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],分片文件大小:[{}]，上传进度:[{}/{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(), chunk.getChunkSize(), temp, chunk.getTotalChunks());
         // 当所有文件块上传完成后，更新图像处理状态，并异步生成缩略图
         if (temp == chunk.getTotalChunks()) {
-            image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
+            image.setStatus(ImageConstant.IMAGE_PROCESS_PARSING);
             imageMapper.updateById(image);
             log.debug("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}], 开始解析原始切片", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks());
             FILE_MAP_SYN.remove(imageId);
@@ -132,7 +136,7 @@ public class FileServiceImpl implements FileService {
                 openSlideService.processThumb(image);
             } catch (Exception e) {
                 log.error("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],生成缩略图异常：[{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(), e.getMessage());
-                if (log.isDebugEnabled()){
+                if (log.isDebugEnabled()) {
                     e.printStackTrace();
                 }
             }
@@ -140,5 +144,35 @@ public class FileServiceImpl implements FileService {
             // asyncTask.calculateMd5(path, imageId);
         }
         return true;
+    }
+
+    /**
+     * 每分钟执行一次：状态为上传中的数据，2h内状态不更新，则自动置为上传失败。
+     * 0上传中、1上传失败、2解析中、3解析失败、4可用
+     */
+    @Scheduled(fixedRate = 1000*60*60*2)
+    public void refreshImageStatus() {
+        List<Image> list = imageMapper.selectList(Wrappers.<Image>lambdaQuery().eq(Image::getStatus, ImageConstant.IMAGE_PROCESS_UPLOADING)
+                        .eq(Image::getSource, ImageConstant.IMAGE_SOURCE_UPLOAD).lt(Image::getCreateTime, DateUtil.offsetHour(new Date(), -2)));
+        if (CollectionUtils.isNotEmpty(list)) {
+            for (Image image : list){
+                image.setStatus(ImageConstant.IMAGE_PROCESS_UPLOAD_FAIL);
+                image.setUpdateTime(new Date());
+                try{
+                    if (FILE_MAP_SYN.containsKey(image.getImageId())){
+                        FILE_MAP_SYN.remove(image.getImageId());
+                    }
+                    File file = new File(image.getImagePath());
+                    if (file.exists()){
+                        file.delete();
+                    }
+                    imageMapper.updateById(image);
+                    log.info("定时任务处理上传中超时切片成功，imageId:[{}]",image.getImageId());
+                }catch (Exception e){
+                    log.error("定时任务处理上传中超时切片异常:[{}]，imageId:[{}]",e.getMessage(), image.getImageId());
+                    continue;
+                }
+            }
+        }
     }
 }

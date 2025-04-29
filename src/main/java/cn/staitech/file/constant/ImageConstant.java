@@ -20,11 +20,11 @@ public class ImageConstant {
     public static final String SERVER_IMAGE_UPLOAD_FAILURE1 = "正在解析该专题图像，不可重复上传";
     public static final String IMAGE_STATUS_ENABLE = "4";
     public static final String IMAGE_STATUS_UNABLE = "1";
-    public static final String IMAGE_PROCESS_PARSING = "1";
-    public static final String IMAGE_PROCESS_PARSE_SUCCESS = "3";
-    public static final String IMAGE_PROCESS_PARSE_FAIL = "2";
-    public static final String IMAGE_PROCESS_UPLOAD_FAIL = "0";
-    public static final String IMAGE_PROCESS_UPLOADING = "5";
+    public static final String IMAGE_PROCESS_PARSING = "2";
+    public static final String IMAGE_PROCESS_PARSE_SUCCESS = "4";
+    public static final String IMAGE_PROCESS_PARSE_FAIL = "3";
+    public static final String IMAGE_PROCESS_UPLOAD_FAIL = "1";
+    public static final String IMAGE_PROCESS_UPLOADING = "0";
     public static final Integer IMAGE_SOURCE_UPLOAD = 1;
     public static final Integer IMAGE_SOURCE_SERVER = 2;
 

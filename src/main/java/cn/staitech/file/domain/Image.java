@@ -147,11 +147,6 @@ public class Image implements Serializable {
     private Integer sourceLens;
 
     /**
-     * 处理状态，不可用原因共三种，0上传失败（MD5校验不通过），1解析中，2解析失败（不能获得缩略图）（1.0：0上传未合并,1合并且生成缩略图,2传输图像）
-     */
-    private String processFlag;
-
-    /**
      * 创建者
      */
     private Long createBy;
@@ -185,9 +180,7 @@ public class Image implements Serializable {
     @TableField(value = "topic_name")
     private String topicName;
 
-    /**
-     * 是否可用0不可用1可用
-     */
+    @ApiModelProperty(value = "切片状态：0-上传中；1-上传失败；2-解析中；3-解析失败；4-解析成功")
     private String status;
 
     /**

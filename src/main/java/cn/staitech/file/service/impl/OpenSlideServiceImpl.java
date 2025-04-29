@@ -117,11 +117,9 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             String tMd5 = DigestUtils.md5DigestAsHex(inputStream);
             // 文件上传成功,合并成功 0上传失败（MD5校验不通过），1解析中，2解析失败（不能获得缩略图）
             if (tMd5.equals(image.getMd5())) {
-                image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_SUCCESS);
-                image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
+                image.setStatus(ImageConstant.IMAGE_PROCESS_PARSE_SUCCESS);
                 log.info("文件md5值校验成功,imageId:{} ,MD5:{}", imageId, tMd5);
             } else {
-                image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
                 image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
                 log.info("文件md5值校验失败-2,imageId:{} ,MD5:{}", imageId, tMd5);
             }
@@ -208,7 +206,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     public void processThumbUpdate(File inFile, Long id) {
         Image image = imageMapper.selectById(id);
         image = processThumbInstance(inFile, image);
-        if (ImageConstant.IMAGE_PROCESS_PARSE_FAIL.equals(image.getProcessFlag())) {
+        if (ImageConstant.IMAGE_PROCESS_PARSE_FAIL.equals(image.getStatus())) {
             processThumbInstance(inFile, image);
         }
         imageService.updateById(image);
@@ -252,15 +250,13 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
             // 总层数小于2为不可用 不可用原因共三种，2解析失败（不能获得缩略图）
             if (image.getLevelCount() < MIN_LEVEL_COUNT) {
-                image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
-                image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
+                image.setStatus(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
             } else {
                 image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
-                image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_SUCCESS);
             }
         } catch (Exception e) {
             log.error("1==>OpenSlideServiceImpl->processThumb->文件打开失败，转换后openSlide仍不识别此格式", e.getMessage());
-            image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
+            image.setStatus(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
         } finally {
             if (os != null) {
                 os.close();
@@ -331,7 +327,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             throw new Exception("imageIds不能为空");
         }
         List<Image> images = imageService.list(Wrappers.<Image>lambdaQuery().eq(Image::getStatus, ImageConstant.IMAGE_STATUS_UNABLE)
-                .eq(Image::getProcessFlag, ImageConstant.IMAGE_PROCESS_PARSE_FAIL).in(Image::getImageId, imageIds));
+                .eq(Image::getStatus, ImageConstant.IMAGE_PROCESS_PARSE_FAIL).in(Image::getImageId, imageIds));
         processThumb(images);
     }
 

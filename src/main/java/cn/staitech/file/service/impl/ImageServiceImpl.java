@@ -129,8 +129,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         image.setImageName(imageName);
         image.setSize(String.valueOf(new File(path).length()));
         image.setFileName(FileUploadUtils.getFileName(imageName));
-        image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
-        image.setProcessFlag(ImageConstant.IMAGE_PROCESS_PARSING);
+        image.setStatus(ImageConstant.IMAGE_PROCESS_PARSING);
         image.setSource(ImageConstant.IMAGE_SOURCE_SERVER);
         return image;
     }
@@ -156,8 +155,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         try {
             // 设置默认值
             image.setOrganizationId(fileInformation.getOrganizationId());
-            image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
-            image.setProcessFlag(ImageConstant.IMAGE_PROCESS_UPLOADING);
+            image.setStatus(ImageConstant.IMAGE_PROCESS_UPLOADING);
             image.setSource(ImageConstant.IMAGE_SOURCE_UPLOAD);
 
             // 校验并处理文件名
@@ -313,6 +311,25 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         return basePath + File.separator + type + File.separator + filePathStr;
     }
 
+    public static void main(String[] args) {
+        /**
+         * R25-0429-RD 2424912-16D 4M.svs
+         * R25-0429-RD 2424911-1E 4M RC-1.svs
+         * R25-0429-RD 2424912-2 4M.svs
+         * R25-0429-RD 2424911-1 4M RC-1.svs
+         */
+        String input = "R25-0429-RD 2424912-16D 4M";
+        Image image = new Image();
+        ImageServiceImpl imageService = new ImageServiceImpl();
+        image = imageService.test(input, image);
+        log.info("image = {}", image);
+
+    }
+
+    public Image test(String input, Image image) {
+        return parseFields(input, image);
+    }
+
     /**
      * 拆分图片名称
      *
@@ -328,13 +345,13 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 // 解析专题号部分
                 String topicNumber = parts[0].trim();
                 image.setTopicName(topicNumber);
-                Topic topic = getTopic(topicNumber);
+                /*Topic topic = getTopic(topicNumber);
                 if (topic != null) {
                     image.setTopicId(topic.getTopicId());
                 } else {
                     log.error("未找到专题信息，专题号: {}", topicNumber);
                     image.setAnalyzeStatus(ImageConstant.NUMBER_0);
-                }
+                }*/
 
                 // 解析动物号和蜡块号部分
                 String animalAndWaxBlock = parts[1].trim();
