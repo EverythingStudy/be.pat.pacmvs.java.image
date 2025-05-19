@@ -345,13 +345,13 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 // 解析专题号部分
                 String topicNumber = parts[0].trim();
                 image.setTopicName(topicNumber);
-                /*Topic topic = getTopic(topicNumber);
+                Topic topic = getTopic(topicNumber);
                 if (topic != null) {
                     image.setTopicId(topic.getTopicId());
                 } else {
                     log.error("未找到专题信息，专题号: {}", topicNumber);
                     image.setAnalyzeStatus(ImageConstant.NUMBER_0);
-                }*/
+                }
 
                 // 解析动物号和蜡块号部分
                 String animalAndWaxBlock = parts[1].trim();
