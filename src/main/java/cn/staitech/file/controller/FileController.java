@@ -71,7 +71,7 @@ public class FileController {
 			}
 
 			// step3:校验文件是否重复：校验文件名
-			int count = imageService.count(Wrappers.<Image>lambdaQuery().eq(Image::getImageName, fileInformation.getImageName()));
+			long count = imageService.count(Wrappers.<Image>lambdaQuery().eq(Image::getImageName, fileInformation.getImageName()));
 			if (check && count>0) {
 				return R.fail(ImageConstant.IMAGE_EXISTS);
 			}

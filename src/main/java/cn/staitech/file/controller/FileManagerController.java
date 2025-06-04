@@ -8,10 +8,8 @@ import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -27,10 +25,16 @@ import java.util.stream.Collectors;
 @Slf4j
 @Api(value = "文件管理器", tags = "文件管理器")
 @RestController
-@RequestMapping("/filemanager")
+@RequestMapping("/filePath")
 public class FileManagerController {
     @Value("${file.path}")
     private String baseDir;
+
+    @ApiOperation(value = "获取原始切片根目录")
+    @PostMapping("/getFilePath")
+    public R getFilePath(@Value("${file.path}") String filePath) throws Exception {
+        return R.ok(filePath);
+    }
 
     /**
      * 查询目录下的文件夹和文件列表

@@ -16,8 +16,10 @@ public class ImageConstant {
     public static final String DISALLOWED_FILE_SIZE = "不允许上传5G以上的文件";
     public static final String FILE_SLIDE_UPLOAD_SUCCESS = "文件分片上传成功";
     public static final String FILE_SLIDE_UPLOAD_FAILURE = "文件分片上传失败";
-    public static final String SERVER_IMAGE_UPLOAD_FAILURE = "服务器上传电子切片专题信息已归档";
-    public static final String SERVER_IMAGE_UPLOAD_FAILURE1 = "正在解析该专题图像，不可重复上传";
+
+    /**
+     * 图像解析状态
+     */
     public static final String IMAGE_STATUS_ENABLE = "4";
     public static final String IMAGE_STATUS_UNABLE = "1";
     public static final String IMAGE_PROCESS_PARSING = "2";
@@ -25,17 +27,26 @@ public class ImageConstant {
     public static final String IMAGE_PROCESS_PARSE_FAIL = "3";
     public static final String IMAGE_PROCESS_UPLOAD_FAIL = "1";
     public static final String IMAGE_PROCESS_UPLOADING = "0";
+
+    /**
+     * 图像来源
+     */
     public static final Integer IMAGE_SOURCE_UPLOAD = 1;
     public static final Integer IMAGE_SOURCE_SERVER = 2;
 
-    public static final String  SLIDE_FILE_UNBACK  = "1";
-    public static final String  SLIDE_FILE_BACK  = "2";
-    public static final String  ARCHIVE_STATUS_1  = "1";
-    public static final String  ARCHIVE_STATUS_2  = "2";
+    /**
+     * 图像名称解析状态
+     */
+    public static final Integer IMAGE_NAME_PARSE_FAIL = 0;
+    public static final Integer IMAGE_NAME_PARSE_SUCC = 1;
+
 
     public static final Long ALLOWED_FILE_MAXSIZE = 1024 * 1024 * 1024 * 5L;
     public static final String THUMB_BASE_DIR = "/file/statics";
-    public static final Integer NUMBER_0 = 0;
-    public static final Integer NUMBER_1 = 1;
+
+
+    //解剖期限常量：TN、RN、DOS(FD)、DOS(MOR)、DOS（FD）、DOS（MOR）
+    public static final String[] ANATOMY_PERIOD_CONSTANT = {"TN", "RN", "DOS(FD)", "DOS(MOR)", "DOS（FD）", "DOS（MOR）"};
+
 
 }
