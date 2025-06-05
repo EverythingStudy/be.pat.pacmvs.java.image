@@ -86,13 +86,14 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         int exists = imageMapper.selectCount(Wrappers.<Image>lambdaQuery()
                 .in(Image::getImagePath, filePaths)
                 .eq(Image::getOrganizationId, vo.getOrganizationId()));
-        if (exists>0) {
+        if (exists > 0) {
             List<Image> existImages = imageMapper.selectList(Wrappers.<Image>lambdaQuery()
                     .in(Image::getImagePath, filePaths)
                     .eq(Image::getOrganizationId, vo.getOrganizationId()));
-            throw new DuplicateKeyException("服务器选片异常:["
+            log.warn("服务器选片异常:[{}]文件已经存在", existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", ")));
+            /*throw new DuplicateKeyException("服务器选片异常:["
                     + existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", "))
-                    + "]文件已经存在");
+                    + "]文件已经存在");*/
         }
 
         List<Image> images = new ArrayList<>();
