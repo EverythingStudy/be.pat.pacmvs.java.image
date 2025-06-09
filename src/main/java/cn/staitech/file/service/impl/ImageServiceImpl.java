@@ -90,6 +90,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             List<Image> existImages = imageMapper.selectList(Wrappers.<Image>lambdaQuery()
                     .in(Image::getImagePath, filePaths)
                     .eq(Image::getOrganizationId, vo.getOrganizationId()));
+            filePaths.removeAll(existImages.stream().map(Image::getImagePath).collect(Collectors.toList()));
             log.warn("服务器选片异常:[{}]文件已经存在", existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", ")));
             /*throw new DuplicateKeyException("服务器选片异常:["
                     + existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", "))
@@ -97,7 +98,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         }
 
         List<Image> images = new ArrayList<>();
-        for (String path : vo.getFileList()) {
+        for (String path : filePaths) {
             File file = new File(path);
             String imageName = file.getName();
             Image image = createImageFromPath(vo.getOrganizationId(), path, imageName);
