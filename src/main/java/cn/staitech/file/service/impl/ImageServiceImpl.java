@@ -74,12 +74,12 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         }
 
         // 验证文件路径有效性
-        for (String path : vo.getFileList()) {
+        /*for (String path : vo.getFileList()) {
             File file = new File(path);
             if (!file.exists() || !file.isFile() || !file.canRead()) {
                 throw new IllegalArgumentException("文件路径无效或不可访问: " + path);
             }
-        }
+        }*/
 
         // 检查文件是否已存在于数据库
         List<String> filePaths = Arrays.asList(vo.getFileList());
@@ -90,7 +90,8 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             List<Image> existImages = imageMapper.selectList(Wrappers.<Image>lambdaQuery()
                     .in(Image::getImagePath, filePaths)
                     .eq(Image::getOrganizationId, vo.getOrganizationId()));
-            filePaths.removeAll(existImages.stream().map(Image::getImagePath).collect(Collectors.toList()));
+            List<String> existImagePaths = existImages.stream().map(Image::getImagePath).collect(Collectors.toList());
+            filePaths = filePaths.stream().filter(path -> !existImagePaths.contains(path)).collect(Collectors.toList());
             log.warn("服务器选片异常:[{}]文件已经存在", existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", ")));
             /*throw new DuplicateKeyException("服务器选片异常:["
                     + existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", "))
