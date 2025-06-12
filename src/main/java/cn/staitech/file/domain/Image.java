@@ -210,4 +210,7 @@ public class Image implements Serializable {
     @ApiModelProperty("文件名解析状态（0失败1成功）")
     private Integer analyzeStatus;
 
+    @ApiModelProperty("解剖期限")
+    private String period;
+
 }

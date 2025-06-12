@@ -1,19 +1,22 @@
 package cn.staitech.file.controller;
 
 import cn.staitech.common.core.domain.R;
+import cn.staitech.common.security.utils.SecurityUtils;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.service.ImageService;
 import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.vo.FileInsertVO;
-import com.sun.org.apache.bcel.internal.generic.I2F;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
+
+import static cn.staitech.file.constant.ImageConstant.IMAGE_NAME_PARSE_FAIL;
+import static cn.staitech.file.constant.ImageConstant.IMAGE_PROCESS_PARSE_SUCCESS;
 
 /**
  * @author mugw
@@ -51,10 +54,14 @@ public class ImageController {
         openSlideService.reparse(imageIds);
         return R.ok();
     }
-
-    @ApiOperation(value = "获取原始切片根目录")
-    @GetMapping("/getFilePath")
-    public R getFilePath(@Value("${file.path}") String filePath) throws Exception {
-        return R.ok(filePath);
+    @ApiOperation(value = "检查是否存在解析失败的切片", tags =  {"V2.6.0"})
+    @GetMapping("/checkFailImage")
+    public R checkFailImage() throws Exception {
+        long count = imageService.count(Wrappers.<Image>lambdaQuery().and(w -> w.ne(Image::getStatus, IMAGE_PROCESS_PARSE_SUCCESS).or()
+                        .eq(Image::getAnalyzeStatus,IMAGE_NAME_PARSE_FAIL))
+                .eq(Image::getOrganizationId, SecurityUtils.getOrganizationId()));
+        return R.ok(count>0);
     }
+
+
 }

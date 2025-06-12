@@ -32,7 +32,6 @@ public class Topic implements Serializable {
     /**
      * 专题名称（唯一约束）
      */
-    @TableId
     private String topicName;
 
     /**

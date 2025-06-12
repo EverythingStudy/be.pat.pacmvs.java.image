@@ -83,7 +83,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
 
         // 检查文件是否已存在于数据库
         List<String> filePaths = Arrays.asList(vo.getFileList());
-        int exists = imageMapper.selectCount(Wrappers.<Image>lambdaQuery()
+        long exists = imageMapper.selectCount(Wrappers.<Image>lambdaQuery()
                 .in(Image::getImagePath, filePaths)
                 .eq(Image::getOrganizationId, vo.getOrganizationId()));
         if (exists > 0) {
@@ -314,25 +314,6 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         return basePath + File.separator + type + File.separator + filePathStr;
     }
 
-    public static void main(String[] args) {
-        /**
-         * R25-0429-RD 2424912-16D 4M.svs
-         * R25-0429-RD 2424911-1E 4M RC-1.svs
-         * R25-0429-RD 2424912-2 4M.svs
-         * R25-0429-RD 2424911-1 4M RC-1.svs
-         */
-        String input = "R25-0429-RD 2424912-16D 4M";
-        Image image = new Image();
-        ImageServiceImpl imageService = new ImageServiceImpl();
-        image = imageService.test(input, image);
-        log.info("image = {}", image);
-
-    }
-
-    public Image test(String input, Image image) {
-        return parseFields(input, image);
-    }
-
     /**
      * 拆分图片名称
      *
@@ -342,7 +323,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         // 根据空格拆分字符串为三个主要部分
         String[] parts = input.split(" ");
         // 文件名解析状态:默认1成功
-        image.setAnalyzeStatus(ImageConstant.NUMBER_1);
+        image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_SUCC);
         try {
             if (parts.length >= 3) {
                 // 解析专题号部分
@@ -353,7 +334,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     image.setTopicId(topic.getTopicId());
                 } else {
                     log.error("未找到专题信息，专题号: {}", topicNumber);
-                    image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                    image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                 }
 
                 // 解析动物号和蜡块号部分
@@ -361,7 +342,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 int lastIndex = animalAndWaxBlock.lastIndexOf('-');
                 if (lastIndex == -1 || lastIndex == animalAndWaxBlock.length() - 1) {
                     log.error("动物号和蜡块号格式无效: {}", animalAndWaxBlock);
-                    image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                    image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                 }
                 String waxBlockStr = animalAndWaxBlock.substring(lastIndex + 1);
                 image.setWaxCode(waxBlockStr);
@@ -377,13 +358,19 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     image.setSexFlag(gender);
                 } else {
                     log.error("组号和性别格式无效: {}", groupNumberAndGender);
-                    image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                    image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
+                }
+                // 解剖期限
+                if (parts.length >= 4){
+                    String period = parts[3].trim();
+                    String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
+                    image.setPeriod(periodResult);
                 }
             } else {
                 parseSlideCode(input, image);
             }
         } catch (Exception e) {
-            image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+            image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
             log.error("文件名:[{}]解析失败：[{}]", input, e.getMessage());
             if (log.isDebugEnabled()) {
                 e.printStackTrace();
@@ -404,7 +391,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         // 输入参数校验
         if (input == null || input.isEmpty()) {
             log.error("切片编号解析失败：输入为空");
-            image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+            image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
             return image;
         }
         try {
@@ -413,7 +400,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             StringUtils.trimToEmpty(input);
             String[] parts = input.split("~");
             // 文件名解析状态: 默认1成功
-            image.setAnalyzeStatus(ImageConstant.NUMBER_1);
+            image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_SUCC);
             if (parts.length == 4 || parts.length == 5) {
                 // 解析专题号部分
                 String topicNumber = parts[0].trim();
@@ -423,7 +410,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     image.setTopicId(topic.getTopicId());
                 } else {
                     log.error("切片编号：[{}], 未找到专题信息，专题号: {}", input, topicNumber);
-                    image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                    image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                 }
                 // 解析动物号和蜡块号部分
                 String animalCode = parts[1].trim();
@@ -436,18 +423,23 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 GroupAndSex parsedGroupNumber = extractGroupNumber(groupNumberAndGender);
                 if (parsedGroupNumber == null) {
                     log.error("切片编号：[{}], 组号和性别格式无效: {}", input, groupNumberAndGender);
-                    image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                    image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                     return image;
                 }
+                // 解剖期限
+                String period = parts[3].trim();
+                String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
+                image.setPeriod(periodResult);
+
                 image.setGroupCode(parsedGroupNumber.getGroupCode());
                 image.setSexFlag(parsedGroupNumber.getSexFlag());
             } else {
                 log.error("切片编号：[{}],输入格式无效", input);
-                image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+                image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
             }
         } catch (Exception e) {
             log.error("切片编号解析异常：{}, 输入: {}", e.getMessage(), input, e);
-            image.setAnalyzeStatus(ImageConstant.NUMBER_0);
+            image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
         }
         return image;
     }
