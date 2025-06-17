@@ -48,5 +48,11 @@ public class ImageConstant {
     //解剖期限常量：TN、RN、DOS(FD)、DOS(MOR)、DOS（FD）、DOS（MOR）
     public static final String[] ANATOMY_PERIOD_CONSTANT = {"TN", "RN", "DOS(FD)", "DOS(MOR)", "DOS（FD）", "DOS（MOR）"};
 
+    //雌性
+    public static final String FEMALE = "F";
+    //雄性
+    public static final String MALE = "M";
+
+
 
 }
