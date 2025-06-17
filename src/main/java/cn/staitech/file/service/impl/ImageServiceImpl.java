@@ -201,8 +201,8 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             return R.ok(out, "补充信息成功");
 
         } catch (Exception e) {
-            log.error("[{}] 补充信息失败", fileInformation, e);
-            return R.fail("补充信息失败");
+            log.error("[{}] 补充信息失败,[{}]", fileInformation, e.getMessage());
+            return R.fail("系统未知错误");
         }
     }
 
@@ -398,6 +398,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             // 根据波浪号拆分字符串为五个主要部分
             input = StringUtils.replace(input, " ", "");
             StringUtils.trimToEmpty(input);
+            //R24-224-RD～2424912～2～4M～~TN～RC-1_083944]~~~~~~~~~~~~~~~~~~~~~~~
             String[] parts = input.split("~");
             // 文件名解析状态: 默认1成功
             image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_SUCC);
