@@ -22,7 +22,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
@@ -325,7 +324,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         // 文件名解析状态:默认1成功
         image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_SUCC);
         try {
-            if (parts.length >= 3) {
+            if (parts.length >= 3 && parts.length <= 5) {
                 // 解析专题号部分
                 String topicNumber = parts[0].trim();
                 image.setTopicName(topicNumber);
@@ -354,6 +353,10 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 if (groupNumberAndGender.length() >= 2) {
                     String groupNumber = groupNumberAndGender.substring(0, groupNumberAndGender.length() - 1);
                     String gender = groupNumberAndGender.substring(groupNumberAndGender.length() - 1);
+                    if (!ImageConstant.FEMALE.equals(gender)&& !ImageConstant.MALE.equals(gender)){
+                        log.error("性别格式无效: {}", groupNumberAndGender);
+                        image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
+                    }
                     image.setGroupCode(groupNumber);
                     image.setSexFlag(gender);
                 } else {
@@ -402,7 +405,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             String[] parts = input.split("~");
             // 文件名解析状态: 默认1成功
             image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_SUCC);
-            if (parts.length == 4 || parts.length == 5) {
+            if (parts.length == 4 || parts.length == 5 || parts.length == 6) {
                 // 解析专题号部分
                 String topicNumber = parts[0].trim();
                 image.setTopicName(topicNumber);
@@ -422,18 +425,22 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 String groupNumberAndGender = parts[3].trim();
                 // 解析组号和性别部分
                 GroupAndSex parsedGroupNumber = extractGroupNumber(groupNumberAndGender);
-                if (parsedGroupNumber == null) {
+                if (parsedGroupNumber == null||(!ImageConstant.FEMALE.equals(parsedGroupNumber.getSex())&& !ImageConstant.MALE.equals(parsedGroupNumber.getSex()))) {
                     log.error("切片编号：[{}], 组号和性别格式无效: {}", input, groupNumberAndGender);
                     image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                     return image;
                 }
-                // 解剖期限
-                String period = parts[3].trim();
-                String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
-                image.setPeriod(periodResult);
-
                 image.setGroupCode(parsedGroupNumber.getGroupCode());
-                image.setSexFlag(parsedGroupNumber.getSexFlag());
+                image.setSexFlag(parsedGroupNumber.getSex());
+                // 解剖期限
+                for (int i = 4; i < parts.length; i++){
+                    String period = parts[i].trim();
+                    String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
+                    image.setPeriod(periodResult);
+                    if (periodResult != ""){
+                        break;
+                    }
+                }
             } else {
                 log.error("切片编号：[{}],输入格式无效", input);
                 image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
@@ -470,19 +477,19 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
     // 内部类：用于封装组号和性别解析结果
     private static class GroupAndSex {
         private final String groupCode;
-        private final String sexFlag;
+        private final String sex;
 
-        public GroupAndSex(String groupCode, String sexFlag) {
+        public GroupAndSex(String groupCode, String sex) {
             this.groupCode = groupCode;
-            this.sexFlag = sexFlag;
+            this.sex = sex;
         }
 
         public String getGroupCode() {
             return groupCode;
         }
 
-        public String getSexFlag() {
-            return sexFlag;
+        public String getSex() {
+            return sex;
         }
     }
 
