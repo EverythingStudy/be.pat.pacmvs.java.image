@@ -63,5 +63,10 @@ public class ImageController {
         return R.ok(count>0);
     }
 
+    @ApiOperation(value = "查询原始切片", tags =  {"V2.6.0"})
+    @GetMapping("/getImage/{id}")
+    public R getImage(@PathVariable("id") Long imageId) throws Exception {
+        return R.ok(imageService.getById(imageId));
+    }
 
 }
