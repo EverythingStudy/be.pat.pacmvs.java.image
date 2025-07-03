@@ -102,7 +102,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             File file = new File(path);
             String imageName = file.getName();
             Image image = createImageFromPath(vo.getOrganizationId(), path, imageName);
-            parseFields(image.getFileName(), image); // 解析文件名并设置相关字段
+            parseSlideCode(image.getFileName(), image); // 解析文件名并设置相关字段
             processImageCommon(image); // 处理图像的公共逻辑
             images.add(image);
         }
@@ -168,7 +168,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             image.setFileName(fileName);
 
             // 拆分图片名称字段
-            parseFields(fileName, image);
+            parseSlideCode(fileName, image);
 
             processImageCommon(image);
 
