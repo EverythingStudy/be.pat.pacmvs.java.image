@@ -369,9 +369,9 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
                     image.setPeriod(periodResult);
                 }
-            } else {
+            } /*else {
                 parseSlideCode(input, image);
-            }
+            }*/
         } catch (Exception e) {
             image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
             log.error("文件名:[{}]解析失败：[{}]", input, e.getMessage());
@@ -385,21 +385,21 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
     /**
      * 拆分图片名称字段
      *
-     * @param input 输入字符串，格式为"专题号~动物号~蜡块号~组别性别~其他尾缀_时间戳"
+     * @param inputSrc 输入字符串，格式为"专题号~动物号~蜡块号~组别性别~其他尾缀_时间戳"
      * @param image 图像对象，用于存储解析结果
      * @return 更新后的图像对象
      * @throws Exception 如果解析失败，抛出异常
      */
-    private Image parseSlideCode(String input, Image image) throws Exception {
+    private Image parseSlideCode(String inputSrc, Image image) throws Exception {
         // 输入参数校验
-        if (input == null || input.isEmpty()) {
+        if (inputSrc == null || inputSrc.isEmpty()) {
             log.error("切片编号解析失败：输入为空");
             image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
             return image;
         }
         try {
             // 根据波浪号拆分字符串为五个主要部分
-            input = StringUtils.replace(input, " ", "");
+            String input = StringUtils.replace(inputSrc, " ", "");
             StringUtils.trimToEmpty(input);
             //R24-224-RD～2424912～2～4M～~TN～RC-1_083944]~~~~~~~~~~~~~~~~~~~~~~~
             String[] parts = input.split("~");
@@ -437,7 +437,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     String period = parts[i].trim();
                     String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
                     image.setPeriod(periodResult);
-                    if (periodResult != ""){
+                    if (StringUtils.isNotBlank(periodResult)){
                         break;
                     }
                 }
@@ -446,8 +446,11 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
             }
         } catch (Exception e) {
-            log.error("切片编号解析异常：{}, 输入: {}", e.getMessage(), input, e);
+            log.error("切片编号解析异常：{}, 输入: {}", e.getMessage(), inputSrc, e);
             image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
+        }
+        if (image.getAnalyzeStatus() == ImageConstant.IMAGE_NAME_PARSE_FAIL){
+            parseFields(inputSrc, image);
         }
         return image;
     }
