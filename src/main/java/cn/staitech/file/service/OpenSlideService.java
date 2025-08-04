@@ -13,17 +13,6 @@ import java.util.List;
  */
 public interface OpenSlideService {
 
-
-    /**
-     * 本地文件上传接口
-     *
-     * @param file    上传的文件
-     * @param imageId
-     * @return 访问地址
-     * @throws Exception
-     */
-    String uploadFile(MultipartFile file, Long imageId) throws Exception;
-
     /**
      * 把缩略图实际存储到本地
      *

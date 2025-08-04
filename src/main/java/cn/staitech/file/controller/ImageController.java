@@ -15,8 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
 
-import static cn.staitech.file.constant.ImageConstant.IMAGE_NAME_PARSE_FAIL;
-import static cn.staitech.file.constant.ImageConstant.IMAGE_PROCESS_PARSE_SUCCESS;
+import static cn.staitech.file.constant.ImageConstant.*;
 
 /**
  * @author mugw
@@ -57,7 +56,7 @@ public class ImageController {
     @ApiOperation(value = "检查是否存在解析失败的切片", tags =  {"V2.6.0"})
     @GetMapping("/checkFailImage")
     public R checkFailImage() throws Exception {
-        long count = imageService.count(Wrappers.<Image>lambdaQuery().and(w -> w.ne(Image::getStatus, IMAGE_PROCESS_PARSE_SUCCESS).or()
+        long count = imageService.count(Wrappers.<Image>lambdaQuery().and(w -> w.ne(Image::getStatus, IMAGE_STATUS_ENABLE).or()
                         .eq(Image::getAnalyzeStatus,IMAGE_NAME_PARSE_FAIL))
                 .eq(Image::getOrganizationId, SecurityUtils.getOrganizationId()));
         return R.ok(count>0);

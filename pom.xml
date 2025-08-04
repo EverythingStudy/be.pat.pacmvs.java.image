@@ -8,6 +8,11 @@
         <version>2.6.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
+    </properties>
 
     <artifactId>staitech-modules-image</artifactId>
 
@@ -212,12 +217,43 @@
             <!--<resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <includes>
+                    <include>**/*.*</include>
+                </includes>
             </resource>-->
+            <!-- 主资源目录，过滤文本文件，排除二进制文件 -->
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <excludes>
+                    <exclude>**/*.dll</exclude>
+                    <exclude>**/*.so</exclude>
+                    <exclude>**/*.dylib</exclude>
+                    <exclude>**/*.jar</exclude>
+                    <exclude>**/*.zip</exclude>
+                    <exclude>**/*.png</exclude>
+                    <exclude>**/*.jpg</exclude>
+                    <exclude>**/*.jpeg</exclude>
+                    <exclude>**/*.gif</exclude>
+                    <exclude>**/*.ico</exclude>
+                </excludes>
+            </resource>
+
+            <!-- 对二进制文件不进行过滤 -->
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
                 <includes>
-                    <include>**/*.*</include>
+                    <include>**/*.dll</include>
+                    <include>**/*.so</include>
+                    <include>**/*.dylib</include>
+                    <include>**/*.jar</include>
+                    <include>**/*.zip</include>
+                    <include>**/*.png</include>
+                    <include>**/*.jpg</include>
+                    <include>**/*.jpeg</include>
+                    <include>**/*.gif</include>
+                    <include>**/*.ico</include>
                 </includes>
             </resource>
             <resource>
@@ -244,6 +280,7 @@
                 <targetPath>BOOT-INF/lib/</targetPath>
                 <includes>
                     <include>**/*.jar</include>
+<!--                    <include>**/*.*</include>-->
                 </includes>
             </resource>
         </resources>
@@ -251,8 +288,36 @@
 
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                    <nonFilteredFileExtensions>
+                        <nonFilteredFileExtension>dll</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>so</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>dylib</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>jar</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>zip</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>png</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>jpg</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>jpeg</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>gif</nonFilteredFileExtension>
+                        <nonFilteredFileExtension>ico</nonFilteredFileExtension>
+                    </nonFilteredFileExtensions>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <layout>ZIP</layout>
+                    <requiresUnpack>
+                        <dependency>
+                            <groupId>org.opencv</groupId>
+                            <artifactId>opencv</artifactId>
+                        </dependency>
+                    </requiresUnpack>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

@@ -180,7 +180,7 @@ public class Image implements Serializable {
     @TableField(value = "topic_name")
     private String topicName;
 
-    @ApiModelProperty(value = "切片状态：0-上传中；1-上传失败；2-解析中；3-解析失败；4-解析成功")
+    @ApiModelProperty("图像状态：0-上传中；1-上传失败；2-解析中；3-解析失败；4-可用；5-信息解析中；6-信息解析失败；7-处理中；8-处理失败")
     private String status;
 
     /**

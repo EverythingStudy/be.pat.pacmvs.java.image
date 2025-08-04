@@ -18,16 +18,24 @@ public class ImageConstant {
     public static final String FILE_SLIDE_UPLOAD_FAILURE = "文件分片上传失败";
 
     /**
-     * 图像解析状态
+     * 图像状态：0-上传中；1-上传失败；2-解析中；3-解析失败；4-可用；5-信息解析中；6-信息解析失败；7-处理中；8-处理失败
      */
+    public static final String IMAGE_STATUS_TILE_PROCESS_FAIL = "8";
+    public static final String IMAGE_STATUS_TILE_PROCESSING = "7";
+    public static final String IMAGE_STATUS_MSG_PARSE_FAIL = "6";
+    public static final String IMAGE_STATUS_MSG_PARSING = "5";
     public static final String IMAGE_STATUS_ENABLE = "4";
-    public static final String IMAGE_STATUS_UNABLE = "1";
-    public static final String IMAGE_PROCESS_PARSING = "2";
-    public static final String IMAGE_PROCESS_PARSE_SUCCESS = "4";
-    public static final String IMAGE_PROCESS_PARSE_FAIL = "3";
-    public static final String IMAGE_PROCESS_UPLOAD_FAIL = "1";
-    public static final String IMAGE_PROCESS_UPLOADING = "0";
+    public static final String IMAGE_STATUS_PARSE_FAIL = "3";
+    public static final String IMAGE_STATUS_PARSING = "2";
+    public static final String IMAGE_STATUS_UPLOAD_FAIL = "1";
+    public static final String IMAGE_STATUS_UPLOADING = "0";
 
+    /**
+     * 切片存储目录
+     */
+    public static final String SLIDE_STORAGE_RETRY = "Retry";
+    public static final String SLIDE_STORAGE_FAILED = "Failed";
+    public static final String SLIDE_STORAGE = "Slides";
     /**
      * 图像来源
      */

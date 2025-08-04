@@ -18,7 +18,7 @@ import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.service.FileService;
 import cn.staitech.file.service.ImageService;
-import cn.staitech.file.util.FileUploadUtils;
+import cn.staitech.file.util.ImageUtils;
 import cn.staitech.file.vo.Chunk;
 import cn.staitech.file.vo.FileInformationOutVO;
 import cn.staitech.file.vo.FileInformationVO;
@@ -66,7 +66,7 @@ public class FileController {
 			}
 
 			// step2：判断文件扩展名是否允许上传 true可上传,false不可上传
-			if (FileUploadUtils.isAllowedExtension(fileInformation.getImageName())) {
+			if (ImageUtils.isAllowedExtension(fileInformation.getImageName())) {
 				return R.fail(ImageConstant.DISALLOWED_EXTENSION);
 			}
 
