@@ -58,8 +58,8 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     static {
         int processors = Runtime.getRuntime().availableProcessors();
         THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
-                processors * 2 + 1,
-                processors * 4,
+                processors + 1,
+                processors * 2,
                 30,
                 TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(100000),

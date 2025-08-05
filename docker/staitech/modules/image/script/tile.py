@@ -2,7 +2,7 @@ import sys
 import os
 import time
 import openslide
-# from openslide import OpenSlideCache
+from openslide import OpenSlideCache
 import numpy as np
 from PIL import Image,ImageCms
 from openslide.deepzoom import DeepZoomGenerator
@@ -42,12 +42,12 @@ def cunrrent_output_zoomify_tiles(slide, output_dir):
     dz_level_count = dz.level_count
 
     # 创建线程池
-    max_workers = os.cpu_count()*2 + 1
+    max_workers = os.cpu_count() + 1
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 使用有界队列控制并发任务数量
         futures = []
-        max_pending_tasks = max_workers * 2  # 最大待处理任务数
+        max_pending_tasks = max_workers * 4  # 最大待处理任务数
 
         tile_count = 0
 
@@ -167,9 +167,9 @@ def main():
     slide = openslide.OpenSlide(wsi_path)
     # Create an OpenSlideCache object with a specified capacity (e.g., 100 MB)
     # print(f"Slide dimensions: {slide.dimensions}")
-    # cache_capacity = 1 * 1024 * 1024 * 1024  # 1GB
-    # cache = OpenSlideCache(cache_capacity)
-    # slide.set_cache(cache)
+    cache_capacity = 1 * 1024 * 1024 * 1024  # 1GB
+    cache = OpenSlideCache(cache_capacity)
+    slide.set_cache(cache)
     # output_dir = 'path/to/output/zoomify_tiles'
     output_dir = args[1]
     # output_zoomify_tiles(slide, output_dir)
