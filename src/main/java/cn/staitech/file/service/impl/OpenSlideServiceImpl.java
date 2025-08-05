@@ -322,7 +322,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                         image.setUpdateTime(new Date());
                         imageMapper.updateById(image);
                     }
-                }, THREAD_POOL_EXECUTOR);
+                }, Executors.newSingleThreadExecutor());
             }
             // 等待所有任务完成
             CompletableFuture.allOf(futures).join();
