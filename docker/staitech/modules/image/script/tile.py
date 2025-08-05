@@ -19,7 +19,7 @@ def process_single_tile(dz, level, x, y, output_dir, slide):
     处理单个瓦片
     """
     try:
-        tile_path = os.path.join(output_dir, f"{level}-{x}-{y}.jpg")
+        tile_path = os.path.join(output_dir, f"{level+1}-{x}-{y}.jpg")
         tile = dz.get_tile(level, (x, y))
         save_tile_to_file(tile, tile_path, slide)
         return f"Saved tile {tile_path}"
