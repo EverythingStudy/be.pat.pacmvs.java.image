@@ -122,4 +122,30 @@ class DeepZoomGeneratorCustom(DeepZoomGenerator):
         self._bg_color = '#' + self._osr.properties.get(
             openslide.PROPERTY_NAME_BACKGROUND_COLOR, 'ffffff'
         )
+    def process_single_tile(self, level, x, y, output_dir):
+        """
+        处理单个瓦片
+        """
+        try:
+            # Read tile
+            args, z_size = self._get_tile_info(level, (x, y))
+            tile = self._osr.read_region(*args)
+
+            # Apply on solid background
+            # bg = Image.new('RGB', tile.size, self._bg_color)
+            # tile = Image.composite(tile, bg, tile)
+            # Scale to the correct size
+            if tile.size != z_size:
+                # Image.Resampling added in Pillow 9.1.0
+                # Image.LANCZOS removed in Pillow 10
+                tile.thumbnail(z_size, getattr(Image, 'Resampling', Image).LANCZOS)
+            profile = self._osr.color_profile.profile
+            rgbp = ImageCms.createProfile("sRGB")
+            # 应用颜色转换
+            transform = ImageCms.buildTransform(profile, rgbp, "RGB", "RGB")
+            result = ImageCms.applyTransform(tile, transform)
+            tile_path = os.path.join(output_dir, f"{level}-{x}-{y}.jpg")
+            result.save(tile_path, "JPEG", quality=90)
+        except Exception as e:
+            return f"Error processing tile {level}-{x}-{y}: {e}"
     

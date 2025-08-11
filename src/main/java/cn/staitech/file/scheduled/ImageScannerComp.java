@@ -31,8 +31,8 @@ public class ImageScannerComp {
     /**
      * 定时扫描图像目录
      */
-//    @Scheduled(fixedRate = 1000*60*60)
-    @Scheduled(fixedRate = 1000*60)
+    @Scheduled(fixedRate = 1000*60*60)
+//    @Scheduled(fixedRate = 1000*60)
     public void imageScanner() {
 //        String rootDirStr = "";
 //        String redisKey = "image:scanner:organization:dir";
@@ -81,8 +81,8 @@ public class ImageScannerComp {
      */
     private void scanOrganizationDir(File rootDir, Long organizationId, FileInsertVO result) {
         // 计算一小时前的时间戳
-//        long oneHourAgo = System.currentTimeMillis() - (60 * 60 * 1000);
-        long oneHourAgo = System.currentTimeMillis() - (10 * 1000);
+        long oneHourAgo = System.currentTimeMillis() - (60 * 60 * 1000);
+//        long oneHourAgo = System.currentTimeMillis() - (10 * 1000);
         List<String> imagePaths = new ArrayList<>();
         final String slideDirStr = "Slides";
         final String retryDirStr = "Retry";
