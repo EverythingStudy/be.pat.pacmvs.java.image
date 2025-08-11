@@ -28,5 +28,12 @@ public interface OpenSlideService {
 
     void reparse(List<Long> imageIds) throws Exception;
 
+    /**
+     * 单独处理切片任务
+     * @param images 图像列表
+     * @throws Exception 异常
+     */
+    void processTiles(List<Image> images) throws Exception;
+
 }
 

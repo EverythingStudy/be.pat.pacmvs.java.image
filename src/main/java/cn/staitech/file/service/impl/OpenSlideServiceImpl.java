@@ -55,6 +55,9 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
     private static final ThreadPoolExecutor THREAD_POOL_EXECUTOR;
 
+    private static final ExecutorService SINGLE_THREAD_EXECUTOR = Executors.newSingleThreadExecutor();
+
+
     static {
         int processors = Runtime.getRuntime().availableProcessors();
         THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
@@ -309,20 +312,73 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                     }
                     image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESSING);
                     imageMapper.updateById(image);
+
+                    // 缩略图生成完成，提交切片任务到队列中异步处理
+                    submitTileTask(image);
+                }, THREAD_POOL_EXECUTOR);
+            }
+            // 等待所有任务完成
+            CompletableFuture.allOf(futures).join();
+        }
+    }
+
+    /**
+     * 提交切片任务到异步处理队列
+     * @param image
+     */
+    private void submitTileTask(Image image) {
+        SINGLE_THREAD_EXECUTOR.submit(() -> {
+            try {
+                String out_path = localFilePath + File.separator + ImageUtils.getOrgIdFormat(image.getOrganizationId()) + File.separator + image.getImageId() + File.separator + "TileGroup0";
+                log.info("开始调用python脚本处理切片：image: {}, 切片输出路径：{}", image, out_path);
+                callPython(image.getImagePath(), out_path);
+
+                // 更新状态为启用
+                image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
+                image.setUpdateTime(new Date());
+                imageMapper.updateById(image);
+            } catch (Exception e) {
+                image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL);
+                moveFile2Failed(image);
+                image.setUpdateTime(new Date());
+                imageMapper.updateById(image);
+                log.error("调用python脚本失败，image：{}，异常信息：{}", image, e.getMessage());
+            }
+        });
+    }
+
+    /**
+     * 单独处理切片任务（解耦后的切片处理方法）
+     * @param images
+     * @throws Exception
+     */
+    @Override
+    public void processTiles(List<Image> images) throws Exception {
+        if (CollectionUtils.isNotEmpty(images)) {
+            CompletableFuture<?>[] futures = new CompletableFuture[images.size()];
+            for (int i = 0; i < images.size(); i++) {
+                Image image = images.get(i);
+                futures[i] = CompletableFuture.runAsync(() -> {
+                    if (!image.getStatus().equals(ImageConstant.IMAGE_STATUS_TILE_PROCESSING)) {
+                        log.warn("图像状态不正确，无法处理切片任务, image: {}, status: {}", image, image.getStatus());
+                        return;
+                    }
+
                     try {
                         String out_path = localFilePath + File.separator + ImageUtils.getOrgIdFormat(image.getOrganizationId()) + File.separator + image.getImageId() + File.separator + "TileGroup0";
                         log.info("开始调用python脚本处理切片：image: {}, 切片输出路径：{}", image, out_path);
                         callPython(image.getImagePath(), out_path);
+
                         image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
                     } catch (Exception e) {
                         image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL);
                         moveFile2Failed(image);
                         log.error("调用python脚本失败，image：{}，异常信息：{}", image, e.getMessage());
-                    }finally {
+                    } finally {
                         image.setUpdateTime(new Date());
                         imageMapper.updateById(image);
                     }
-                }, Executors.newSingleThreadExecutor());
+                }, THREAD_POOL_EXECUTOR);
             }
             // 等待所有任务完成
             CompletableFuture.allOf(futures).join();
@@ -356,32 +412,19 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         }
     }
 
-    /*public static void main(String[] args) {
-        OpenSlideServiceImpl openSlideService = new OpenSlideServiceImpl();
-        openSlideService.callPython("E:\\R249-224-RD~2424912~2~4M~TN~RC-1_083944.svs", "/home/pacmvs/");
-    }*/
-
     public void callPython(String imagePath, String tileDir) throws Exception {
         // Specify the Python script and its arguments
-//            String pythonScriptPath = "path/to/your/script.py";
-        /*String pythonScriptPath = "D:\\work\\pacmvs\\be.pat.pacmvs.java.image\\python-script\\tile.py";
-        String pythonExecutable = "C:\\Users\\admin\\miniconda3\\envs\\slide_evn\\python.exe"; */
-//            ProcessBuilder processBuilder = new ProcessBuilder(  "python", pythonScriptPath, arg1, arg2);
         ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, pythonScriptPath, imagePath, tileDir);
-
         // Redirect error stream to output stream
         processBuilder.redirectErrorStream(true);
-
         // Start the process
         Process process = processBuilder.start();
-
         // Read the output from the process
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         String line;
         while ((line = reader.readLine()) != null) {
             System.out.println(line);
         }
-
         // Wait for the process to complete
         int exitCode = process.waitFor();
         System.out.println("Python script exited with code: " + exitCode);
