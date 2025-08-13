@@ -55,7 +55,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
     private static final ThreadPoolExecutor THREAD_POOL_EXECUTOR;
 
-    private static final ExecutorService SINGLE_THREAD_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final ExecutorService SINGLE_THREAD_EXECUTOR = Executors.newFixedThreadPool(10);
 
 
     static {

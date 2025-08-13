@@ -1,8 +1,9 @@
 
 from openslide.deepzoom import DeepZoomGenerator
-from PIL import Image
+from PIL import Image,ImageCms
 import math
 import openslide
+import os
 
 class DeepZoomGeneratorCustom(DeepZoomGenerator):
     def __init__(self, osr, tile_size=254, overlap=1, limit_bounds=False, level_tiles=None):
@@ -83,8 +84,9 @@ class DeepZoomGeneratorCustom(DeepZoomGenerator):
         z_dimensions = [z_size]
         while z_size[0] > tile_size or z_size[1] > tile_size:
             z_size = tuple(max(1, int(math.ceil(z / 2))) for z in z_size)
-            if z_size[0] < tile_size or z_size[1] < tile_size: break
+            if z_size[0] < tile_size and z_size[1] < tile_size: break
             z_dimensions.append(z_size)
+        z_dimensions.append(z_size)
         # Narrow the type, for self.level_dimensions
         self._z_dimensions = self._pairs_from_n_tuples(tuple(reversed(z_dimensions)))
 

@@ -84,7 +84,7 @@ class DeepZoomGeneratorCustom(DeepZoomGenerator):
         z_dimensions = [z_size]
         while z_size[0] > tile_size or z_size[1] > tile_size:
             z_size = tuple(max(1, int(math.ceil(z / 2))) for z in z_size)
-            if z_size[0] < tile_size or z_size[1] < tile_size: break
+            if z_size[0] < tile_size and z_size[1] < tile_size: break
             z_dimensions.append(z_size)
         z_dimensions.append(z_size)
         # Narrow the type, for self.level_dimensions
