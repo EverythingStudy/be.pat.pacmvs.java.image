@@ -54,8 +54,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     private ImageMapper imageMapper;
 
     private static final ThreadPoolExecutor THREAD_POOL_EXECUTOR;
-
-    private static final ExecutorService SINGLE_THREAD_EXECUTOR = Executors.newFixedThreadPool(10);
+    private static final ThreadPoolExecutor FIXED_THREAD_POOL_EXECUTOR;
 
 
     static {
@@ -81,6 +80,30 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                     public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
                         // 丢弃任务，不抛出异常
                         log.error("OpenSlide THREAD_POOL_EXECUTOR rejectedExecution: {}", r);
+                    }
+                }
+        );
+        FIXED_THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
+                processors/4,
+                processors/4,
+                30,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(100000),
+                new ThreadFactory() {
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        int threadCount = 0;
+                        Thread t = new Thread(r, "Python-Thread-" + threadCount++);
+                        t.setPriority(Thread.MAX_PRIORITY); // 设置线程优先级
+                        t.setDaemon(false); // 设置是否为守护线程
+                        return t;
+                    }
+                },
+                new RejectedExecutionHandler() {
+                    @Override
+                    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                        // 丢弃任务，不抛出异常
+                        log.error("Python THREAD_POOL_EXECUTOR rejectedExecution: {}", r);
                     }
                 }
         );
@@ -293,29 +316,37 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             CompletableFuture<?>[] futures = new CompletableFuture[images.size()];
             for (int i = 0; i < images.size(); i++) {
                 Image image = images.get(i);
-                futures[i] = CompletableFuture.runAsync(() -> {
-                    if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL)) {
-                        // 移动文件到失败目录
-                        moveFile2Failed(image);
-                        log.warn("切片信息解析失败，不在执行下游流程, image: {}", image);
-                        return;
-                    }
-                    image.setStatus(ImageConstant.IMAGE_STATUS_PARSING);
-                    imageMapper.updateById(image);
-                    processThumbInstance(new File(image.getImagePath()), image);
-                    if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_PARSE_FAIL)) {
+                try {
+                    futures[i] = CompletableFuture.runAsync(() -> {
+                        if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL)) {
+                            // 移动文件到失败目录
+                            moveFile2Failed(image);
+                            log.warn("切片信息解析失败，不在执行下游流程, image: {}", image);
+                            return;
+                        }
+                        image.setStatus(ImageConstant.IMAGE_STATUS_PARSING);
                         imageMapper.updateById(image);
-                        // 移动文件到失败目录
-                        moveFile2Failed(image);
-                        log.warn("切片缩略图解析失败，不在执行下游流程, image: {}", image);
-                        return;
-                    }
-                    image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESSING);
-                    imageMapper.updateById(image);
+                        processThumbInstance(new File(image.getImagePath()), image);
+                        if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_PARSE_FAIL)) {
+                            imageMapper.updateById(image);
+                            // 移动文件到失败目录
+                            moveFile2Failed(image);
+                            log.warn("切片缩略图解析失败，不在执行下游流程, image: {}", image);
+                            return;
+                        }
+                        image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESSING);
+                        imageMapper.updateById(image);
 
-                    // 缩略图生成完成，提交切片任务到队列中异步处理
-                    submitTileTask(image);
-                }, THREAD_POOL_EXECUTOR);
+                        // 缩略图生成完成，提交切片任务到队列中异步处理
+                        submitTileTask(image);
+                    }, THREAD_POOL_EXECUTOR);
+                }catch (Exception e) {
+                    log.error("处理缩略图失败，image: {}, 异常信息: {}", image, e.getMessage());
+                    image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
+                    moveFile2Failed(image);
+                    imageMapper.updateById(image);
+                    continue;
+                }
             }
             // 等待所有任务完成
             CompletableFuture.allOf(futures).join();
@@ -327,7 +358,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
      * @param image
      */
     private void submitTileTask(Image image) {
-        SINGLE_THREAD_EXECUTOR.submit(() -> {
+        CompletableFuture.runAsync(() -> {
             try {
                 String out_path = localFilePath + File.separator + ImageUtils.getOrgIdFormat(image.getOrganizationId()) + File.separator + image.getImageId() + File.separator + "TileGroup0";
                 log.info("开始调用python脚本处理切片：image: {}, 切片输出路径：{}", image, out_path);
@@ -344,7 +375,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 imageMapper.updateById(image);
                 log.error("调用python脚本失败，image：{}，异常信息：{}", image, e.getMessage());
             }
-        });
+        }, FIXED_THREAD_POOL_EXECUTOR);
     }
 
     /**
@@ -378,7 +409,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                         image.setUpdateTime(new Date());
                         imageMapper.updateById(image);
                     }
-                }, THREAD_POOL_EXECUTOR);
+                }, FIXED_THREAD_POOL_EXECUTOR);
             }
             // 等待所有任务完成
             CompletableFuture.allOf(futures).join();
@@ -427,7 +458,11 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         }
         // Wait for the process to complete
         int exitCode = process.waitFor();
-        System.out.println("Python script exited with code: " + exitCode);
+        if (exitCode != 0) {
+            log.error("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
+            throw new Exception("Python script failed with exit code: " + exitCode);
+        }
+        log.info("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
     }
 
 }
