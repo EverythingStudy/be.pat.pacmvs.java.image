@@ -8,7 +8,7 @@ import cn.staitech.common.core.utils.uuid.IdUtils;
 import cn.staitech.common.security.utils.SecurityUtils;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
-import cn.staitech.file.util.FileUploadUtils;
+import cn.staitech.file.util.ImageUtils;
 import cn.staitech.file.domain.Topic;
 import cn.staitech.file.mapper.ImageMapper;
 import cn.staitech.file.mapper.TopicMapper;
@@ -16,10 +16,10 @@ import cn.staitech.file.service.ImageService;
 import cn.staitech.file.vo.FileInformationOutVO;
 import cn.staitech.file.vo.FileInformationVO;
 import cn.staitech.file.vo.FileInsertVO;
-import cn.staitech.system.api.domain.SysUser;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -27,11 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.io.File;
 import java.nio.file.Paths;
-import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -56,7 +52,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
 
     /**
      * 批量处理文件插入请求
-     *
+     * <p>
      * 此方法负责接收一个包含文件信息的FileInsertVO对象，验证文件的有效性，
      * 检查文件是否已存在于数据库中，然后创建并保存Image对象到数据库
      *
@@ -78,10 +74,28 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             if (!file.exists() || !file.isFile() || !file.canRead()) {
                 throw new IllegalArgumentException("文件路径无效或不可访问: " + path);
             }
-        }*/
+        }
+        List<Image> images = new ArrayList<>();
 
-        // 检查文件是否已存在于数据库
         List<String> filePaths = Arrays.asList(vo.getFileList());
+        // 有Retry状态的图像，则将其名称添加到retryImageName列表中
+        List<String> retryImagePaths = filePaths.stream().filter(path -> path.contains(ImageConstant.SLIDE_STORAGE_RETRY)).collect(Collectors.toList());
+        List<String> retryImageName = retryImagePaths.stream().map(path -> new File(path).getName()).collect(Collectors.toList());
+        if (CollectionUtils.isNotEmpty(retryImageName)) {
+            // 根据retryImageName查询失败的图像
+            List<Image> failImages = imageMapper.selectList(Wrappers.<Image>lambdaQuery().eq(Image::getOrganizationId, vo.getOrganizationId())
+                    .in(Image::getImageName, retryImageName)
+                    .in(Image::getStatus,ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL, ImageConstant.IMAGE_STATUS_PARSE_FAIL, ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL));
+            // 更新失败图像的路径和URL
+            for (Image image : failImages) {
+                image.setImagePath(retryImagePaths.stream().filter(path -> path.contains(image.getImageName())).findFirst().orElse(image.getImagePath()));
+                image.setImageUrl(retryImagePaths.stream().filter(path -> path.contains(image.getImageName())).findFirst().orElse(image.getImagePath()));
+                image.setUpdateTime(new Date());
+            }
+            // 批量更新失败图像
+            images.addAll(failImages);
+        }
+        // 检查文件是否已存在于数据库
         long exists = imageMapper.selectCount(Wrappers.<Image>lambdaQuery()
                 .in(Image::getImagePath, filePaths)
                 .eq(Image::getOrganizationId, vo.getOrganizationId()));
@@ -90,37 +104,49 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     .in(Image::getImagePath, filePaths)
                     .eq(Image::getOrganizationId, vo.getOrganizationId()));
             List<String> existImagePaths = existImages.stream().map(Image::getImagePath).collect(Collectors.toList());
-            filePaths = filePaths.stream().filter(path -> !existImagePaths.contains(path)).collect(Collectors.toList());
+            // 从filePaths中移除已存在的图像路径，避免重复处理
+            filePaths = filePaths.stream()
+                    .filter(path -> !existImagePaths.contains(path))
+                    .filter(path -> !path.contains(ImageConstant.SLIDE_STORAGE_RETRY))
+                    .collect(Collectors.toList());
+            // 如果存在的图像中有Retry状态的图像，则将其名称添加到retryImageName列表中
+            List<Image> retryFailImages = existImages.stream().filter(image -> (Objects.equals(image.getStatus(), ImageConstant.IMAGE_STATUS_PARSE_FAIL)
+                    || Objects.equals(image.getStatus(), ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL)) && image.getImagePath().contains(ImageConstant.SLIDE_STORAGE_RETRY)).collect(Collectors.toList());
+            if (CollectionUtils.isNotEmpty(retryFailImages)) {
+                images.addAll(retryFailImages);
+            }
             log.warn("服务器选片异常:[{}]文件已经存在", existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", ")));
             /*throw new DuplicateKeyException("服务器选片异常:["
                     + existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", "))
                     + "]文件已经存在");*/
         }
 
-        List<Image> images = new ArrayList<>();
         for (String path : filePaths) {
             File file = new File(path);
             String imageName = file.getName();
             Image image = createImageFromPath(vo.getOrganizationId(), path, imageName);
+            image.setStatus(ImageConstant.IMAGE_STATUS_MSG_PARSING); // 设置初始状态为解析中
             parseSlideCode(image.getFileName(), image); // 解析文件名并设置相关字段
+            if (Objects.equals(image.getAnalyzeStatus(), ImageConstant.IMAGE_NAME_PARSE_FAIL)) {
+                image.setStatus(ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL); // 如果解析失败，设置状态为解析失败
+            }
             processImageCommon(image); // 处理图像的公共逻辑
             images.add(image);
         }
 
         // 批量保存图像信息到数据库
-        saveBatch(images);
-
+        saveOrUpdateBatch(images);
         return images;
     }
 
     /**
      * 根据文件路径创建 Image 对象
-     *
+     * <p>
      * 此方法负责根据给定的组织ID、文件路径和文件名创建一个Image对象，并设置其基本属性
      *
      * @param organizationId 组织ID，用于关联图像到特定的组织
-     * @param path 图像文件的绝对路径
-     * @param imageName 图像文件的名称
+     * @param path           图像文件的绝对路径
+     * @param imageName      图像文件的名称
      * @return 返回初始化后的Image对象
      */
     private Image createImageFromPath(Long organizationId, String path, String imageName) {
@@ -130,8 +156,8 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         image.setImageUrl(path);
         image.setImageName(imageName);
         image.setSize(String.valueOf(new File(path).length()));
-        image.setFileName(FileUploadUtils.getFileName(imageName));
-        image.setStatus(ImageConstant.IMAGE_PROCESS_PARSING);
+        image.setFileName(ImageUtils.getFileName(imageName));
+        image.setStatus(ImageConstant.IMAGE_STATUS_PARSING);
         image.setSource(ImageConstant.IMAGE_SOURCE_SERVER);
         return image;
     }
@@ -157,7 +183,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         try {
             // 设置默认值
             image.setOrganizationId(fileInformation.getOrganizationId());
-            image.setStatus(ImageConstant.IMAGE_PROCESS_UPLOADING);
+            image.setStatus(ImageConstant.IMAGE_STATUS_UPLOADING);
             image.setSource(ImageConstant.IMAGE_SOURCE_UPLOAD);
 
             // 校验并处理文件名
@@ -216,7 +242,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         if (StringUtils.isBlank(imageName)) {
             return null;
         }
-        String fileName = FileUploadUtils.getFileName(imageName);
+        String fileName = ImageUtils.getFileName(imageName);
         if (StringUtils.isBlank(fileName)) {
             return null;
         }
@@ -227,9 +253,9 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
      * 初始化文件路径
      * 根据基础路径、组织ID和主题名称生成文件的保存路径
      *
-     * @param basePath 基础路径
+     * @param basePath       基础路径
      * @param organizationId 组织ID
-     * @param topicName 主题名称
+     * @param topicName      主题名称
      * @return 返回生成的文件保存路径字符串
      * @throws IllegalArgumentException 如果组织ID或主题名称为空，则抛出该异常
      */
@@ -237,7 +263,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         if (organizationId == null || StringUtils.isBlank(topicName)) {
             throw new IllegalArgumentException("组织ID或主题名称不能为空");
         }
-        return Paths.get(basePath, getFourNumber(organizationId), topicName).toString();
+        return Paths.get(basePath, ImageUtils.getFourNumber(organizationId), topicName).toString();
     }
 
     /**
@@ -248,9 +274,11 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
      */
     private void processImageCommon(Image image) {
         // 获取用户ID并校验
-        Long userId = SecurityUtils.getUserId();
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID cannot be null");
+        Long userId = 1L;
+        try {
+            userId = SecurityUtils.getUserId();
+        }catch (NullPointerException e) {
+            log.error("获取用户ID失败，使用默认用户ID: {}", userId);
         }
 
         // 设置图像的基本信息
@@ -297,15 +325,15 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         if (organizationId == null) {
             throw new IllegalArgumentException("Organization ID cannot be null");
         }
-        return ImageConstant.THUMB_BASE_DIR + File.separator + getFourNumber(organizationId);
+        return ImageConstant.THUMB_BASE_DIR + File.separator + ImageUtils.getFourNumber(organizationId);
     }
 
     /**
      * 生成具体路径
      * 根据基础路径、类型和文件路径字符串生成完整的路径
      *
-     * @param basePath 基础路径，可以是组织路径或其他基础目录路径
-     * @param type 文件类型，如"thumbnail"、"macro"等
+     * @param basePath    基础路径，可以是组织路径或其他基础目录路径
+     * @param type        文件类型，如"thumbnail"、"macro"等
      * @param filePathStr 文件路径字符串，包含文件名
      * @return 完整的路径字符串，格式为基础路径加上类型和文件路径字符串
      */
@@ -328,7 +356,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 // 解析专题号部分
                 String topicNumber = parts[0].trim();
                 image.setTopicName(topicNumber);
-                Topic topic = getTopic(topicNumber);
+                Topic topic = getTopic(topicNumber,image.getOrganizationId());
                 if (topic != null) {
                     image.setTopicId(topic.getTopicId());
                 } else {
@@ -353,7 +381,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 if (groupNumberAndGender.length() >= 2) {
                     String groupNumber = groupNumberAndGender.substring(0, groupNumberAndGender.length() - 1);
                     String gender = groupNumberAndGender.substring(groupNumberAndGender.length() - 1);
-                    if (!ImageConstant.FEMALE.equals(gender)&& !ImageConstant.MALE.equals(gender)){
+                    if (!ImageConstant.FEMALE.equals(gender) && !ImageConstant.MALE.equals(gender)) {
                         log.error("性别格式无效: {}", groupNumberAndGender);
                         image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                     }
@@ -364,7 +392,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                     image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                 }
                 // 解剖期限
-                if (parts.length >= 4){
+                if (parts.length >= 4) {
                     String period = parts[3].trim();
                     String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
                     image.setPeriod(periodResult);
@@ -386,7 +414,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
      * 拆分图片名称字段
      *
      * @param inputSrc 输入字符串，格式为"专题号~动物号~蜡块号~组别性别~其他尾缀_时间戳"
-     * @param image 图像对象，用于存储解析结果
+     * @param image    图像对象，用于存储解析结果
      * @return 更新后的图像对象
      * @throws Exception 如果解析失败，抛出异常
      */
@@ -409,7 +437,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 // 解析专题号部分
                 String topicNumber = parts[0].trim();
                 image.setTopicName(topicNumber);
-                Topic topic = getTopic(topicNumber);
+                Topic topic = getTopic(topicNumber, image.getOrganizationId());
                 if (topic != null) {
                     image.setTopicId(topic.getTopicId());
                 } else {
@@ -425,7 +453,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 String groupNumberAndGender = parts[3].trim();
                 // 解析组号和性别部分
                 GroupAndSex parsedGroupNumber = extractGroupNumber(groupNumberAndGender);
-                if (parsedGroupNumber == null||(!ImageConstant.FEMALE.equals(parsedGroupNumber.getSex())&& !ImageConstant.MALE.equals(parsedGroupNumber.getSex()))) {
+                if (parsedGroupNumber == null || (!ImageConstant.FEMALE.equals(parsedGroupNumber.getSex()) && !ImageConstant.MALE.equals(parsedGroupNumber.getSex()))) {
                     log.error("切片编号：[{}], 组号和性别格式无效: {}", input, groupNumberAndGender);
                     image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
                     return image;
@@ -433,11 +461,11 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
                 image.setGroupCode(parsedGroupNumber.getGroupCode());
                 image.setSexFlag(parsedGroupNumber.getSex());
                 // 解剖期限
-                for (int i = 4; i < parts.length; i++){
+                for (int i = 4; i < parts.length; i++) {
                     String period = parts[i].trim();
                     String periodResult = Arrays.stream(ImageConstant.ANATOMY_PERIOD_CONSTANT).filter(s -> period.contains(s)).findAny().orElse("");
                     image.setPeriod(periodResult);
-                    if (StringUtils.isNotBlank(periodResult)){
+                    if (StringUtils.isNotBlank(periodResult)) {
                         break;
                     }
                 }
@@ -449,7 +477,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             log.error("切片编号解析异常：{}, 输入: {}", e.getMessage(), inputSrc, e);
             image.setAnalyzeStatus(ImageConstant.IMAGE_NAME_PARSE_FAIL);
         }
-        if (image.getAnalyzeStatus() == ImageConstant.IMAGE_NAME_PARSE_FAIL){
+        if (image.getAnalyzeStatus() == ImageConstant.IMAGE_NAME_PARSE_FAIL) {
             parseFields(inputSrc, image);
         }
         return image;
@@ -496,47 +524,24 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         }
     }
 
-
-    private Topic getTopic(String topicName) {
+    private Topic getTopic(String topicName,Long organizationId) {
         // 校验输入参数
         if (topicName == null || topicName.isEmpty()) {
             throw new IllegalArgumentException("专题不可为空");
         }
+        Long userId = 1L;
         try {
-            // 获取当前登录用户信息
-            SysUser sysUser = SecurityUtils.getLoginUser().getSysUser();
-            if (sysUser == null) {
-                throw new IllegalStateException("No user is logged in.");
-            }
-
-            Long userId = sysUser.getUserId();
-            if (userId == null) {
-                throw new IllegalStateException("User ID cannot be null.");
-            }
-            Topic topic = topicMapper.selectOne(Wrappers.<Topic>lambdaQuery().eq(Topic::getTopicName, topicName)
-                    .eq(Topic::getOrganizationId, sysUser.getOrganizationId()));
-            if (topic == null) {
-                topic = Topic.builder().topicName(topicName).organizationId(sysUser.getOrganizationId()).createBy(userId)
-                        .updateBy(userId).createTime(new Date()).updateTime(new Date()).build();
-                topicMapper.insert(topic);
-            }
-            return topic;
-        } catch (Exception e) {
-            // 捕获异常并记录日志
-            log.error("Error occurred while getting or creating topic: {}", topicName, e);
-            throw e; // 根据需求决定是否重新抛出异常
+            userId = SecurityUtils.getUserId();
+        }catch (NullPointerException e) {
+            log.error("获取用户ID失败，使用默认用户ID: {}", userId);
         }
-    }
-
-    /**
-     * 生成四位数的文件夹路径
-     * @param number
-     * @return
-     */
-    public static String getFourNumber(Long number) {
-        NumberFormat formatter = NumberFormat.getNumberInstance();
-        formatter.setMinimumIntegerDigits(3);
-        formatter.setGroupingUsed(false);
-        return "C" + formatter.format(number) + File.separator +"Slides";
+        Topic topic = topicMapper.selectOne(Wrappers.<Topic>lambdaQuery().eq(Topic::getTopicName, topicName)
+                .eq(Topic::getOrganizationId, organizationId));
+        if (topic == null) {
+            topic = Topic.builder().topicName(topicName).organizationId(organizationId).createBy(userId)
+                    .updateBy(userId).createTime(new Date()).updateTime(new Date()).build();
+            topicMapper.insert(topic);
+        }
+        return topic;
     }
 }

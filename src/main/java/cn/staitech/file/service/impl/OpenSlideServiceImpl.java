@@ -1,15 +1,13 @@
 package cn.staitech.file.service.impl;
 
-import cn.hutool.core.lang.Snowflake;
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.mapper.ImageMapper;
 import cn.staitech.file.service.ImageService;
 import cn.staitech.file.service.OpenSlideService;
-import cn.staitech.file.util.FileUploadUtils;
-import cn.staitech.file.util.ImageConversionsionResp;
+import cn.staitech.file.util.ImageUtils;
+import cn.staitech.file.vo.ImageConversionsionResp;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -17,22 +15,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.openslide.OpenSlide;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.DigestUtils;
-import org.springframework.util.ResourceUtils;
-import org.springframework.web.multipart.MultipartFile;
-
 import javax.annotation.Resource;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.io.InputStreamReader;
+import java.util.*;
 import java.util.concurrent.*;
 
 /**
@@ -45,14 +36,16 @@ import java.util.concurrent.*;
 @Service
 public class OpenSlideServiceImpl implements OpenSlideService {
 
-    private static Snowflake snowflake = IdUtil.getSnowflake();
-
     private final String imgType = "jpg";
 
     private final Integer imgSize = 256;
 
     @Value("${file.path}")
     private String localFilePath;
+    @Value("${pythonScriptPath:/home/staitech/tile.py}")
+    private String pythonScriptPath;
+    @Value("${pythonExecutable:python}")
+    private String pythonExecutable;
 
     @Resource
     private ImageService imageService;
@@ -60,16 +53,15 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     @Resource
     private ImageMapper imageMapper;
 
-    @Resource
-    private StringRedisTemplate stringRedisTemplate;
-
     private static final ThreadPoolExecutor THREAD_POOL_EXECUTOR;
+    private static final ThreadPoolExecutor FIXED_THREAD_POOL_EXECUTOR;
+
 
     static {
         int processors = Runtime.getRuntime().availableProcessors();
         THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
-                processors * 2 + 1,
-                processors * 4,
+                processors + 1,
+                processors * 2,
                 30,
                 TimeUnit.SECONDS,
                 new ArrayBlockingQueue<>(100000),
@@ -91,56 +83,36 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                     }
                 }
         );
+        FIXED_THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
+                processors/4,
+                processors/4,
+                30,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(100000),
+                new ThreadFactory() {
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        int threadCount = 0;
+                        Thread t = new Thread(r, "Python-Thread-" + threadCount++);
+                        t.setPriority(Thread.MAX_PRIORITY); // 设置线程优先级
+                        t.setDaemon(false); // 设置是否为守护线程
+                        return t;
+                    }
+                },
+                new RejectedExecutionHandler() {
+                    @Override
+                    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                        // 丢弃任务，不抛出异常
+                        log.error("Python THREAD_POOL_EXECUTOR rejectedExecution: {}", r);
+                    }
+                }
+        );
     }
 
     /**
      * 总层数小于2为不可用
      */
     private final int MIN_LEVEL_COUNT = 2;
-
-    /**
-     * 小文件上传
-     *
-     * @param file    上传的文件
-     * @param imageId 图像ID
-     * @return 访问地址
-     * @throws Exception
-     */
-    @Transactional
-    public String uploadFile(MultipartFile file, Long imageId) throws Exception {
-        Image image = imageMapper.selectById(imageId);
-        String imagePath = FileUploadUtils.upload(image, file);
-        image.setImagePath(imagePath);
-        // 文件md5值校验
-        try {
-            FileInputStream inputStream = new FileInputStream(ResourceUtils.getFile(imagePath));
-            String tMd5 = DigestUtils.md5DigestAsHex(inputStream);
-            // 文件上传成功,合并成功 0上传失败（MD5校验不通过），1解析中，2解析失败（不能获得缩略图）
-            if (tMd5.equals(image.getMd5())) {
-                image.setStatus(ImageConstant.IMAGE_PROCESS_PARSE_SUCCESS);
-                log.info("文件md5值校验成功,imageId:{} ,MD5:{}", imageId, tMd5);
-            } else {
-                image.setStatus(ImageConstant.IMAGE_STATUS_UNABLE);
-                log.info("文件md5值校验失败-2,imageId:{} ,MD5:{}", imageId, tMd5);
-            }
-
-            int update = imageMapper.updateById(image);
-
-
-            if (update > 0) {
-                log.info("小文件上传成功 imageid:{} ,imagePath:{}", imageId, imagePath);
-                return imagePath;
-            } else {
-                // 删除 redis
-                log.info("小文件上传失败 imageid:{} ,imagePath:{}", imageId, imagePath);
-                return null;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            log.error("小图像上传异常：{};;imageId:{};;;fileName:{}", e.getMessage(), imageId, file.getName());
-            throw e;
-        }
-    }
 
     /**
      * 根据物理地址,获取到病理图片的resolutionX,resolutionY,sourceLens并存入image
@@ -206,7 +178,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     public void processThumbUpdate(File inFile, Long id) {
         Image image = imageMapper.selectById(id);
         image = processThumbInstance(inFile, image);
-        if (ImageConstant.IMAGE_PROCESS_PARSE_FAIL.equals(image.getStatus())) {
+        if (ImageConstant.IMAGE_STATUS_PARSE_FAIL.equals(image.getStatus())) {
             processThumbInstance(inFile, image);
         }
         imageService.updateById(image);
@@ -218,7 +190,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             // 图片转换格式
             String srcPath = image.getImageUrl();
             String destPath = srcPath;
-            ImageConversionsionResp resp = FileUploadUtils.pictureConversion(srcPath, destPath);
+            ImageConversionsionResp resp = ImageUtils.pictureConversion(srcPath, destPath);
             destPath = resp.getDestPath();
             os = resp.getOpenSlide();
             if (os == null) {
@@ -233,10 +205,10 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             String marcoPath = image.getMacroUrl().replace(ImageConstant.THUMB_BASE_DIR, localFilePath);
 
             // 检查文件夹，无则创建
-            FileUploadUtils.checkDirectory(thumbPath);
-            FileUploadUtils.checkDirectory(cachePath);
-            FileUploadUtils.checkDirectory(labelPath);
-            FileUploadUtils.checkDirectory(marcoPath);
+            ImageUtils.checkDirectory(thumbPath);
+            ImageUtils.checkDirectory(cachePath);
+            ImageUtils.checkDirectory(labelPath);
+            ImageUtils.checkDirectory(marcoPath);
 
             // 生成缩略图
             createThumbnailImage(os, thumbPath, imgSize);
@@ -250,13 +222,13 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
             // 总层数小于2为不可用 不可用原因共三种，2解析失败（不能获得缩略图）
             if (image.getLevelCount() < MIN_LEVEL_COUNT) {
-                image.setStatus(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
+                image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
             } else {
-                image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
+//                image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
             }
         } catch (Exception e) {
             log.error("1==>OpenSlideServiceImpl->processThumb->文件打开失败，转换后openSlide仍不识别此格式", e.getMessage());
-            image.setStatus(ImageConstant.IMAGE_PROCESS_PARSE_FAIL);
+            image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
         } finally {
             if (os != null) {
                 os.close();
@@ -326,8 +298,9 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         if (CollectionUtils.isEmpty(imageIds)) {
             throw new Exception("imageIds不能为空");
         }
-        List<Image> images = imageService.list(Wrappers.<Image>lambdaQuery().eq(Image::getStatus, ImageConstant.IMAGE_STATUS_UNABLE)
-                .eq(Image::getStatus, ImageConstant.IMAGE_PROCESS_PARSE_FAIL).in(Image::getImageId, imageIds));
+        String[] status = new String[]{ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL, ImageConstant.IMAGE_STATUS_PARSE_FAIL, ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL};
+        List<Image> images = imageService.list(Wrappers.<Image>lambdaQuery().in(Image::getStatus, status)
+                .eq(Image::getStatus, ImageConstant.IMAGE_STATUS_PARSE_FAIL).in(Image::getImageId, imageIds));
         processThumb(images);
     }
 
@@ -343,25 +316,153 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             CompletableFuture<?>[] futures = new CompletableFuture[images.size()];
             for (int i = 0; i < images.size(); i++) {
                 Image image = images.get(i);
-                futures[i] = CompletableFuture.runAsync(() -> {
-                    processThumbInstance(new File(image.getImagePath()), image);
+                try {
+                    futures[i] = CompletableFuture.runAsync(() -> {
+                        if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL)) {
+                            // 移动文件到失败目录
+                            moveFile2Failed(image);
+                            log.warn("切片信息解析失败，不在执行下游流程, image: {}", image);
+                            return;
+                        }
+                        image.setStatus(ImageConstant.IMAGE_STATUS_PARSING);
+                        imageMapper.updateById(image);
+                        processThumbInstance(new File(image.getImagePath()), image);
+                        if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_PARSE_FAIL)) {
+                            imageMapper.updateById(image);
+                            // 移动文件到失败目录
+                            moveFile2Failed(image);
+                            log.warn("切片缩略图解析失败，不在执行下游流程, image: {}", image);
+                            return;
+                        }
+                        image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESSING);
+                        imageMapper.updateById(image);
+
+                        // 缩略图生成完成，提交切片任务到队列中异步处理
+                        submitTileTask(image);
+                    }, THREAD_POOL_EXECUTOR);
+                }catch (Exception e) {
+                    log.error("处理缩略图失败，image: {}, 异常信息: {}", image, e.getMessage());
+                    image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
+                    moveFile2Failed(image);
                     imageMapper.updateById(image);
-                }, THREAD_POOL_EXECUTOR);
+                    continue;
+                }
             }
+            // 等待所有任务完成
+            CompletableFuture.allOf(futures).join();
+        }
+    }
+
+    /**
+     * 提交切片任务到异步处理队列
+     * @param image
+     */
+    private void submitTileTask(Image image) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                String out_path = localFilePath + File.separator + ImageUtils.getOrgIdFormat(image.getOrganizationId()) + File.separator + image.getImageId() + File.separator + "TileGroup0";
+                log.info("开始调用python脚本处理切片：image: {}, 切片输出路径：{}", image, out_path);
+                callPython(image.getImagePath(), out_path);
+
+                // 更新状态为启用
+                image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
+                image.setUpdateTime(new Date());
+                imageMapper.updateById(image);
+            } catch (Exception e) {
+                image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL);
+                moveFile2Failed(image);
+                image.setUpdateTime(new Date());
+                imageMapper.updateById(image);
+                log.error("调用python脚本失败，image：{}，异常信息：{}", image, e.getMessage());
+            }
+        }, FIXED_THREAD_POOL_EXECUTOR);
+    }
+
+    /**
+     * 单独处理切片任务（解耦后的切片处理方法）
+     * @param images
+     * @throws Exception
+     */
+    @Override
+    public void processTiles(List<Image> images) throws Exception {
+        if (CollectionUtils.isNotEmpty(images)) {
+            CompletableFuture<?>[] futures = new CompletableFuture[images.size()];
+            for (int i = 0; i < images.size(); i++) {
+                Image image = images.get(i);
+                futures[i] = CompletableFuture.runAsync(() -> {
+                    if (!image.getStatus().equals(ImageConstant.IMAGE_STATUS_TILE_PROCESSING)) {
+                        log.warn("图像状态不正确，无法处理切片任务, image: {}, status: {}", image, image.getStatus());
+                        return;
+                    }
+
+                    try {
+                        String out_path = localFilePath + File.separator + ImageUtils.getOrgIdFormat(image.getOrganizationId()) + File.separator + image.getImageId() + File.separator + "TileGroup0";
+                        log.info("开始调用python脚本处理切片：image: {}, 切片输出路径：{}", image, out_path);
+                        callPython(image.getImagePath(), out_path);
+
+                        image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
+                    } catch (Exception e) {
+                        image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL);
+                        moveFile2Failed(image);
+                        log.error("调用python脚本失败，image：{}，异常信息：{}", image, e.getMessage());
+                    } finally {
+                        image.setUpdateTime(new Date());
+                        imageMapper.updateById(image);
+                    }
+                }, FIXED_THREAD_POOL_EXECUTOR);
+            }
+            // 等待所有任务完成
+            CompletableFuture.allOf(futures).join();
         }
     }
 
     /**
      * 创建缩略图
+     *
      * @param image
      * @throws Exception
      */
     @Override
     public void processThumb(Image image) throws Exception {
         if (ObjectUtil.isNotEmpty(image)) {
-            List<Image> images = Arrays.asList(image);
+            List<Image> images = Collections.singletonList(image);
             processThumb(images);
         }
+    }
+
+    private void moveFile2Failed(Image image) {
+        // 移动文件到失败目录
+        File file = new File(image.getImagePath());
+        if (file.exists()) {
+            String failedDir = localFilePath + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "Failed";
+            File failedFolder = new File(failedDir);
+            if (!failedFolder.exists()) {
+                failedFolder.mkdirs();
+            }
+            file.renameTo(new File(failedDir + File.separator + file.getName()));
+        }
+    }
+
+    public void callPython(String imagePath, String tileDir) throws Exception {
+        // Specify the Python script and its arguments
+        ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, pythonScriptPath, imagePath, tileDir);
+        // Redirect error stream to output stream
+        processBuilder.redirectErrorStream(true);
+        // Start the process
+        Process process = processBuilder.start();
+        // Read the output from the process
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            System.out.println(line);
+        }
+        // Wait for the process to complete
+        int exitCode = process.waitFor();
+        if (exitCode != 0) {
+            log.error("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
+            throw new Exception("Python script failed with exit code: " + exitCode);
+        }
+        log.info("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
     }
 
 }

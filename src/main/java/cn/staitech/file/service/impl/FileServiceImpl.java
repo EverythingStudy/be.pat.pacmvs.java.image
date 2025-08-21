@@ -1,6 +1,5 @@
 package cn.staitech.file.service.impl;
 
-import cn.hutool.core.collection.ConcurrentHashSet;
 import cn.hutool.core.date.DateUtil;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
@@ -8,22 +7,18 @@ import cn.staitech.file.mapper.ImageMapper;
 import cn.staitech.file.service.FileService;
 import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.vo.Chunk;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.io.FileUtils;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
 import javax.annotation.Resource;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import cn.staitech.file.util.FileUploadUtils;
+import cn.staitech.file.util.ImageUtils;
 
 /**
  * @author mugw
@@ -88,7 +83,7 @@ public class FileServiceImpl implements FileService {
                         }
                         FILE_MAP_SYN.putIfAbsent(imageId, chunkStates);
                         // 检查并创建目录
-                        FileUploadUtils.checkDirectory(file.getAbsolutePath());
+                        ImageUtils.checkDirectory(file.getAbsolutePath());
                         // 创建新文件
                         file.createNewFile();
                         log.info("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],创建文件 [{}] 及分片状态列表成功", chunk.getImageId(), chunk.getChunkNumber(), totalChunks, path);
@@ -132,7 +127,7 @@ public class FileServiceImpl implements FileService {
         log.info("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}],分片文件大小:[{}]，上传进度:[{}/{}]", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks(), chunk.getChunkSize(), temp, chunk.getTotalChunks());
         // 当所有文件块上传完成后，更新图像处理状态，并异步生成缩略图
         if (temp == chunk.getTotalChunks()) {
-            image.setStatus(ImageConstant.IMAGE_PROCESS_PARSING);
+            image.setStatus(ImageConstant.IMAGE_STATUS_PARSING);
             imageMapper.updateById(image);
             log.debug("chunk is : ImageId [{}] ChunkNumber [{}] TotalChunks [{}], 开始解析原始切片", chunk.getImageId(), chunk.getChunkNumber(), chunk.getTotalChunks());
             FILE_MAP_SYN.remove(imageId);
@@ -154,13 +149,13 @@ public class FileServiceImpl implements FileService {
      * 每分钟执行一次：状态为上传中的数据，2h内状态不更新，则自动置为上传失败。
      * 0上传中、1上传失败、2解析中、3解析失败、4可用
      */
-    @Scheduled(fixedRate = 1000*60*60*2)
+    //@Scheduled(fixedRate = 1000*60*60*2)
     public void refreshImageStatus() {
-        List<Image> list = imageMapper.selectList(Wrappers.<Image>lambdaQuery().eq(Image::getStatus, ImageConstant.IMAGE_PROCESS_UPLOADING)
+        List<Image> list = imageMapper.selectList(Wrappers.<Image>lambdaQuery().eq(Image::getStatus, ImageConstant.IMAGE_STATUS_UPLOADING)
                         .eq(Image::getSource, ImageConstant.IMAGE_SOURCE_UPLOAD).lt(Image::getCreateTime, DateUtil.offsetHour(new Date(), -2)));
         if (CollectionUtils.isNotEmpty(list)) {
             for (Image image : list){
-                image.setStatus(ImageConstant.IMAGE_PROCESS_UPLOAD_FAIL);
+                image.setStatus(ImageConstant.IMAGE_STATUS_UPLOAD_FAIL);
                 image.setUpdateTime(new Date());
                 try{
                     if (FILE_MAP_SYN.containsKey(image.getImageId())){
