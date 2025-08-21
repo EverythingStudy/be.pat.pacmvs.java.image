@@ -69,7 +69,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
         }
 
         // 验证文件路径有效性
-        for (String path : vo.getFileList()) {
+        /*for (String path : vo.getFileList()) {
             File file = new File(path);
             if (!file.exists() || !file.isFile() || !file.canRead()) {
                 throw new IllegalArgumentException("文件路径无效或不可访问: " + path);
