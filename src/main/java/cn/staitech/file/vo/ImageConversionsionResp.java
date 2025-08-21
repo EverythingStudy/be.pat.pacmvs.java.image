@@ -1,4 +1,4 @@
-package cn.staitech.file.util;
+package cn.staitech.file.vo;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

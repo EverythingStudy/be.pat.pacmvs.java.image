@@ -13,17 +13,6 @@ import java.util.List;
  */
 public interface OpenSlideService {
 
-
-    /**
-     * 本地文件上传接口
-     *
-     * @param file    上传的文件
-     * @param imageId
-     * @return 访问地址
-     * @throws Exception
-     */
-    String uploadFile(MultipartFile file, Long imageId) throws Exception;
-
     /**
      * 把缩略图实际存储到本地
      *
@@ -38,6 +27,13 @@ public interface OpenSlideService {
     void processThumb(Image image) throws Exception;
 
     void reparse(List<Long> imageIds) throws Exception;
+
+    /**
+     * 单独处理切片任务
+     * @param images 图像列表
+     * @throws Exception 异常
+     */
+    void processTiles(List<Image> images) throws Exception;
 
 }
 
