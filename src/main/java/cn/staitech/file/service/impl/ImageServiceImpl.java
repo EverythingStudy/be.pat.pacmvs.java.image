@@ -79,7 +79,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
 
         List<String> filePaths = Arrays.asList(vo.getFileList());
         // 有Retry状态的图像，则将其名称添加到retryImageName列表中
-        List<String> retryImagePaths = filePaths.stream().filter(path -> path.contains(ImageConstant.SLIDE_STORAGE_RETRY)).collect(Collectors.toList());
+        /*List<String> retryImagePaths = filePaths.stream().filter(path -> path.contains(ImageConstant.SLIDE_STORAGE_RETRY)).collect(Collectors.toList());
         List<String> retryImageName = retryImagePaths.stream().map(path -> new File(path).getName()).collect(Collectors.toList());
         if (CollectionUtils.isNotEmpty(retryImageName)) {
             // 根据retryImageName查询失败的图像
@@ -94,7 +94,7 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             }
             // 批量更新失败图像
             images.addAll(failImages);
-        }
+        }*/
         // 检查文件是否已存在于数据库
         long exists = imageMapper.selectCount(Wrappers.<Image>lambdaQuery()
                 .in(Image::getImagePath, filePaths)
@@ -107,14 +107,14 @@ public class ImageServiceImpl extends ServiceImpl<ImageMapper, Image> implements
             // 从filePaths中移除已存在的图像路径，避免重复处理
             filePaths = filePaths.stream()
                     .filter(path -> !existImagePaths.contains(path))
-                    .filter(path -> !path.contains(ImageConstant.SLIDE_STORAGE_RETRY))
+//                    .filter(path -> !path.contains(ImageConstant.SLIDE_STORAGE_RETRY))
                     .collect(Collectors.toList());
             // 如果存在的图像中有Retry状态的图像，则将其名称添加到retryImageName列表中
-            List<Image> retryFailImages = existImages.stream().filter(image -> (Objects.equals(image.getStatus(), ImageConstant.IMAGE_STATUS_PARSE_FAIL)
+            /*List<Image> retryFailImages = existImages.stream().filter(image -> (Objects.equals(image.getStatus(), ImageConstant.IMAGE_STATUS_PARSE_FAIL)
                     || Objects.equals(image.getStatus(), ImageConstant.IMAGE_STATUS_TILE_PROCESS_FAIL)) && image.getImagePath().contains(ImageConstant.SLIDE_STORAGE_RETRY)).collect(Collectors.toList());
             if (CollectionUtils.isNotEmpty(retryFailImages)) {
                 images.addAll(retryFailImages);
-            }
+            }*/
             log.warn("服务器选片异常:[{}]文件已经存在", existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", ")));
             /*throw new DuplicateKeyException("服务器选片异常:["
                     + existImages.stream().map(Image::getImagePath).collect(Collectors.joining(", "))

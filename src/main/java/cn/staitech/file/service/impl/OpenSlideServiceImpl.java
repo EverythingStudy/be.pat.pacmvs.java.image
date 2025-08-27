@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -430,18 +431,67 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         }
     }
 
+    /**
+     * 移动文件到失败目录
+     * @param image
+     */
     private void moveFile2Failed(Image image) {
-        // 移动文件到失败目录
-        File file = new File(image.getImagePath());
-        if (file.exists()) {
-            String failedDir = localFilePath + File.separator + ImageUtils.getFourNumber(image.getOrganizationId()) + File.separator + "Failed";
-            File failedFolder = new File(failedDir);
-            if (!failedFolder.exists()) {
-                failedFolder.mkdirs();
+        Path sourcePath = Paths.get(image.getImageUrl());
+        if (Files.exists(sourcePath)) {
+            try {
+                String failedDir = localFilePath + File.separator +
+                        ImageUtils.getFourNumber(image.getOrganizationId()) +
+                        File.separator + "Failed";
+
+                Path failedFolderPath = Paths.get(failedDir);
+                if (!Files.exists(failedFolderPath)) {
+                    Files.createDirectories(failedFolderPath);
+                }
+
+                // 检查目录是否可写
+                if (!Files.isWritable(failedFolderPath)) {
+                    log.error("失败目录不可写: {}", failedDir);
+                    return;
+                }
+
+                Path targetPath = failedFolderPath.resolve(sourcePath.getFileName());
+
+                // 使用 Files.move 进行移动
+                try {
+                    Files.move(sourcePath, targetPath,
+                            StandardCopyOption.REPLACE_EXISTING,
+                            StandardCopyOption.ATOMIC_MOVE);
+                    log.info("文件移动成功: {} -> {}", sourcePath, targetPath);
+                } catch (AtomicMoveNotSupportedException e) {
+                    // 如果原子移动不支持，尝试普通移动
+                    log.warn("原子移动不支持，使用普通移动: {}", e.getMessage());
+                    Files.move(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    log.info("文件移动成功: {} -> {}", sourcePath, targetPath);
+                }
+
+            } catch (Exception e) {
+                log.error("移动文件到失败目录时发生异常，imageId: {}", image.getImageId(), e);
+
+                // 如果移动失败，尝试复制后删除
+                try {
+                    String failedDir = localFilePath + File.separator +
+                            ImageUtils.getFourNumber(image.getOrganizationId()) +
+                            File.separator + "Failed";
+                    Path failedFolderPath = Paths.get(failedDir);
+                    Path targetPath = failedFolderPath.resolve(sourcePath.getFileName());
+
+                    Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    Files.delete(sourcePath);
+                    log.info("文件复制+删除成功: {} -> {}", sourcePath, targetPath);
+                } catch (IOException copyException) {
+                    log.error("复制文件也失败了，imageId: {}", image.getImageId(), copyException);
+                }
             }
-            file.renameTo(new File(failedDir + File.separator + file.getName()));
+        } else {
+            log.warn("源文件不存在，无法移动: {}", image.getImageUrl());
         }
     }
+
 
     public void callPython(String imagePath, String tileDir) throws Exception {
         // Specify the Python script and its arguments
@@ -459,7 +509,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         // Wait for the process to complete
         int exitCode = process.waitFor();
         if (exitCode != 0) {
-            log.error("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
+            log.error("Python script executed failed: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
             throw new Exception("Python script failed with exit code: " + exitCode);
         }
         log.info("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
