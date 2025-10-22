@@ -54,61 +54,13 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     @Resource
     private ImageMapper imageMapper;
 
-    private static final ThreadPoolExecutor THREAD_POOL_EXECUTOR;
-    private static final ThreadPoolExecutor FIXED_THREAD_POOL_EXECUTOR;
 
+    // 注入线程池
+    @Resource(name = "openSlideTaskExecutor")
+    private ThreadPoolExecutor OPEN_SLIDE_TASK_EXECUTOR;
 
-    static {
-        int processors = Runtime.getRuntime().availableProcessors();
-        THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
-                processors + 1,
-                processors * 2,
-                30,
-                TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(100000),
-                new ThreadFactory() {
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        int threadCount = 0;
-                        Thread t = new Thread(r, "OpenSlide-Thread-" + threadCount++);
-                        t.setPriority(Thread.MAX_PRIORITY); // 设置线程优先级
-                        t.setDaemon(false); // 设置是否为守护线程
-                        return t;
-                    }
-                },
-                new RejectedExecutionHandler() {
-                    @Override
-                    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                        // 丢弃任务，不抛出异常
-                        log.error("OpenSlide THREAD_POOL_EXECUTOR rejectedExecution: {}", r);
-                    }
-                }
-        );
-        FIXED_THREAD_POOL_EXECUTOR = new ThreadPoolExecutor(
-                processors/4,
-                processors/4,
-                30,
-                TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(100000),
-                new ThreadFactory() {
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        int threadCount = 0;
-                        Thread t = new Thread(r, "Python-Thread-" + threadCount++);
-                        t.setPriority(Thread.MAX_PRIORITY); // 设置线程优先级
-                        t.setDaemon(false); // 设置是否为守护线程
-                        return t;
-                    }
-                },
-                new RejectedExecutionHandler() {
-                    @Override
-                    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
-                        // 丢弃任务，不抛出异常
-                        log.error("Python THREAD_POOL_EXECUTOR rejectedExecution: {}", r);
-                    }
-                }
-        );
-    }
+    @Resource(name = "pythonTaskExecutor")
+    private ThreadPoolExecutor PYTHON_TASK_EXECUTOR;
 
     /**
      * 总层数小于2为不可用
@@ -340,7 +292,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
                         // 缩略图生成完成，提交切片任务到队列中异步处理
                         submitTileTask(image);
-                    }, THREAD_POOL_EXECUTOR);
+                    }, OPEN_SLIDE_TASK_EXECUTOR);
                 }catch (Exception e) {
                     log.error("处理缩略图失败，image: {}, 异常信息: {}", image, e.getMessage());
                     image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
@@ -376,7 +328,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 imageMapper.updateById(image);
                 log.error("调用python脚本失败，image：{}，异常信息：{}", image, e.getMessage());
             }
-        }, FIXED_THREAD_POOL_EXECUTOR);
+        }, PYTHON_TASK_EXECUTOR);
     }
 
     /**
@@ -410,7 +362,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                         image.setUpdateTime(new Date());
                         imageMapper.updateById(image);
                     }
-                }, FIXED_THREAD_POOL_EXECUTOR);
+                }, PYTHON_TASK_EXECUTOR);
             }
             // 等待所有任务完成
             CompletableFuture.allOf(futures).join();

@@ -1,47 +1,65 @@
 package cn.staitech.file.config;
 
-import cn.hutool.core.thread.ThreadUtil;
+import cn.hutool.core.thread.NamedThreadFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
+import java.util.concurrent.*;
 
-import java.util.concurrent.Executor;
-
-/**
- * 线程池配置 https://blog.csdn.net/IT_road_qxc/article/details/123090678
- *
- * @author: wangfeng
- * @create: 2023-07-31 11:30:17
- * @Description: ThreadPoolConfig
- */
-
+@Slf4j
 @Configuration
 @EnableAsync
-@Slf4j
 public class ThreadPoolConfig {
 
     /**
-     * 创建线程池 用于正常采集搬迁的文件 上传
+     * OpenSlide处理线程池
      */
-    @Bean(name = "asyncExecutorThumbImage")
-    public Executor asyncExecutorThumbImage() {
-        return ThreadUtil.newExecutor();
+    @Bean("openSlideTaskExecutor")
+    public ThreadPoolExecutor openSlideTaskExecutor() {
+        int processors = Runtime.getRuntime().availableProcessors();
+        return new ThreadPoolExecutor(
+                processors + 1,
+                processors * 2,
+                30,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(100000),
+                new NamedThreadFactory("OpenSlide-Thread-Pool",false),
+                new RejectedExecutionHandler() {
+                    @Override
+                    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                        log.error("OpenSlide任务被拒绝执行: {}", r);
+                        // 可以选择使用调用者线程执行
+                        if (!executor.isShutdown()) {
+                            r.run();
+                        }
+                    }
+                }
+        );
     }
 
     /**
-     * 创建线程池 用于处理失败文件删除-线程池
+     * Python脚本执行线程池
      */
-    @Bean(name = "asyncExecutorFailFile")
-    public Executor asyncExecutorFailFile() {
-        return ThreadUtil.newExecutor();
-    }
-    
-    /**
-     * 创建线程池 用于操作日志处理-线程池
-     */
-    @Bean(name = "asyncExecutorOperationLog")
-    public Executor asyncExecutorOperationLog() {
-        return ThreadUtil.newExecutor();
+    @Bean("pythonTaskExecutor")
+    public ThreadPoolExecutor pythonTaskExecutor() {
+        int processors = Runtime.getRuntime().availableProcessors();
+        return new ThreadPoolExecutor(
+                Math.max(1, processors/16), // 确保至少有1个线程
+                Math.max(2, processors/16), // 确保至少有2个线程
+                30,
+                TimeUnit.SECONDS,
+                new ArrayBlockingQueue<>(100000),
+                new NamedThreadFactory("Python-Thread-Pool",false),
+                new RejectedExecutionHandler() {
+                    @Override
+                    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+                        log.error("Python任务被拒绝执行: {}", r);
+                        if (!executor.isShutdown()) {
+                            r.run();
+                        }
+                    }
+                }
+        );
     }
 }
