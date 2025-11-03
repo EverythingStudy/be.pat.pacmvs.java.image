@@ -6,6 +6,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.openslide.OpenSlide;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.text.NumberFormat;
 
 
@@ -48,29 +49,37 @@ public class ImageUtils {
      * @return
      * @throws Exception
      */
-    public static ImageConversionsionResp pictureConversion(String srcPath,String destPath) throws Exception {
-        File absFile = new File(srcPath);
+    public static ImageConversionsionResp pictureConversion(String srcPath) throws Exception {
+        // 参数校验
+        if (srcPath == null) {
+            throw new IllegalArgumentException("Source path or destination path is null.");
+        }
+        String destPath = srcPath.substring(0, srcPath.lastIndexOf(".")) + ".tif";
+
+        File imagesFile = new File(srcPath);
+        if (!imagesFile.exists()) {
+            throw new FileNotFoundException("Source file does not exist: " + srcPath);
+        }
+
         OpenSlide os = null;
-        destPath = srcPath;
-        log.info("--------------------------------------------------------------------------------------------------");
-        try{
-            log.info("********************开始验证原始切片是否可以被OpenSlide解析，切片地址：[{}]*****************",srcPath);
-            os = new OpenSlide(absFile);
-            log.info("********************OpenSlide解析原始切片验证通过，切片地址：[{}]********************",srcPath);
-        }catch (Exception e){
-            log.warn("********************OpenSlide解析原始切片验证失败：[{}]，切片地址：[{}]********************",e.getMessage(),srcPath);
-            if (os!=null){
+
+        try {
+            log.info("开始验证原始切片是否可以被OpenSlide解析，切片地址：{}", srcPath);
+            os = new OpenSlide(imagesFile);
+            log.info("OpenSlide解析原始切片验证通过，切片地址：{}", srcPath);
+
+        } catch (Exception e) {
+            log.error("OpenSlide解析原始切片验证失败：{}，切片地址：{}", e.getMessage(), srcPath);
+            if (os != null) {
                 os.dispose();
-                log.warn("********************OpenSlide解析原始切片验证失败，关闭OpenSlide，切片地址：[{}]********************",e.getMessage(),srcPath);
+                log.error("OpenSlide解析原始切片验证失败，已关闭OpenSlide，切片地址：{}", srcPath);
             }
-            os=null;
-            log.info("********************原始切片转换，切片地址：[{}]********************",srcPath);
-            destPath = srcPath.substring(0, srcPath.indexOf(".")) + ".tif";
+            os = null;
+
+            log.info("原始切片转换，切片地址：{}", srcPath);
             // 把不能识别的图片转换成可以识别的tif
             VipsUtils.convertToPyramidalTIFF(srcPath, destPath);
-            log.info("********************原始切片转换完成，原地址：[{}]，转换后地址：[{}]********************",srcPath,destPath);
-        }finally {
-            log.info("--------------------------------------------------------------------------------------------------");
+            log.info("原始切片转换完成，原地址：{}，转换后地址：{}", srcPath, destPath);
         }
         return ImageConversionsionResp.builder().openSlide(os).destPath(destPath).build();
     }

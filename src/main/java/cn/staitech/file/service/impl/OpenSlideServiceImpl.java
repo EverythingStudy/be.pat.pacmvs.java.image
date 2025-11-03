@@ -142,9 +142,8 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         try {
             // 图片转换格式
             String srcPath = image.getImageUrl();
-            String destPath = srcPath;
-            ImageConversionsionResp resp = ImageUtils.pictureConversion(srcPath, destPath);
-            destPath = resp.getDestPath();
+            ImageConversionsionResp resp = ImageUtils.pictureConversion(srcPath);
+            String destPath = resp.getDestPath();
             os = resp.getOpenSlide();
             if (os == null) {
                 image.setImagePath(destPath);
@@ -176,16 +175,18 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             // 总层数小于2为不可用 不可用原因共三种，2解析失败（不能获得缩略图）
             if (image.getLevelCount() < MIN_LEVEL_COUNT) {
                 image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
-            } else {
-//                image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
             }
         } catch (Exception e) {
-            log.error("1==>OpenSlideServiceImpl->processThumb->文件打开失败，转换后openSlide仍不识别此格式", e.getMessage());
+            log.error("原始切片信息获取失败，原始切片信息：[{}], 异常信息：[{}]", image, e.getMessage());
             image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
         } finally {
             if (os != null) {
                 os.close();
                 log.info("原始切片openslide对象已关闭，原始切片信息：[{}]", image);
+                if (image.getWidth() == null || image.getHeight() == null) {
+                    log.error("原始切片信息获取失败，原始切片信息：[{}]", image);
+                    image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
+                }
             }
         }
         return image;
