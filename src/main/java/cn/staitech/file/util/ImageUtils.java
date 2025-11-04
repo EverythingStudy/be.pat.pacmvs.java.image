@@ -79,7 +79,19 @@ public class ImageUtils {
             log.info("原始切片转换，切片地址：{}", srcPath);
             // 把不能识别的图片转换成可以识别的tif
             VipsUtils.convertToPyramidalTIFF(srcPath, destPath);
+            os = new OpenSlide(new File(destPath));
             log.info("原始切片转换完成，原地址：{}，转换后地址：{}", srcPath, destPath);
+        }finally {
+            if (os != null) {
+                int levelCount = os.getLevelCount();
+                log.info("验证切片元数据 levelCount：{}", levelCount);
+                if (levelCount <= 0) {
+                    os.dispose();
+                    os = new OpenSlide(imagesFile);
+                    log.info("切片元数据 levelCount：{} OpenSlide重新加载切片，切片地址：{}",
+                            os.getLevelCount(), srcPath);
+                }
+            }
         }
         return ImageConversionsionResp.builder().openSlide(os).destPath(destPath).build();
     }
