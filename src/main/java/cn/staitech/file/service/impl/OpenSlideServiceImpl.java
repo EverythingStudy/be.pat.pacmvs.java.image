@@ -1,6 +1,7 @@
 package cn.staitech.file.service.impl;
 
 import cn.hutool.core.util.ObjectUtil;
+import cn.staitech.common.core.domain.R;
 import cn.staitech.file.constant.ImageConstant;
 import cn.staitech.file.domain.Image;
 import cn.staitech.file.mapper.ImageMapper;
@@ -8,6 +9,10 @@ import cn.staitech.file.service.ImageService;
 import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.util.ImageUtils;
 import cn.staitech.file.vo.ImageConversionsionResp;
+import cn.staitech.file.vo.image.ImageLogDetailReq;
+import cn.staitech.sft.logaudit.req.FieldMapperReq;
+import cn.staitech.sft.logaudit.req.LogAuditParams;
+import cn.staitech.sft.logaudit.req.OperationObjectReq;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -16,6 +21,8 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.openslide.OpenSlide;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
 import javax.annotation.Resource;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -258,6 +265,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         processThumb(images);
     }
 
+
     /**
      * 创建缩略图
      *
@@ -270,37 +278,31 @@ public class OpenSlideServiceImpl implements OpenSlideService {
             CompletableFuture<?>[] futures = new CompletableFuture[images.size()];
             for (int i = 0; i < images.size(); i++) {
                 Image image = images.get(i);
-                try {
-                    futures[i] = CompletableFuture.runAsync(() -> {
-                        if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL)) {
-                            // 移动文件到失败目录
-                            moveFile2Failed(image);
-                            log.warn("切片信息解析失败，不在执行下游流程, image: {}", image);
-                            return;
-                        }
-                        image.setStatus(ImageConstant.IMAGE_STATUS_PARSING);
-                        imageMapper.updateById(image);
-                        processThumbInstance(new File(image.getImagePath()), image);
-                        if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_PARSE_FAIL)) {
-                            imageMapper.updateById(image);
-                            // 移动文件到失败目录
-                            moveFile2Failed(image);
-                            log.warn("切片缩略图解析失败，不在执行下游流程, image: {}", image);
-                            return;
-                        }
-                        image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESSING);
-                        imageMapper.updateById(image);
-
-                        // 缩略图生成完成，提交切片任务到队列中异步处理
-                        submitTileTask(image);
-                    }, OPEN_SLIDE_TASK_EXECUTOR);
-                }catch (Exception e) {
-                    log.error("处理缩略图失败，image: {}, 异常信息: {}", image, e.getMessage());
-                    image.setStatus(ImageConstant.IMAGE_STATUS_PARSE_FAIL);
-                    moveFile2Failed(image);
+                futures[i] = CompletableFuture.runAsync(() -> {
+                    if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_MSG_PARSE_FAIL)) {
+                        // 移动文件到失败目录
+                        moveFile2Failed(image);
+                        log.warn("切片信息解析失败，不在执行下游流程, image: {}", image);
+                        imageLogAudit(image);
+                        return;
+                    }
+                    image.setStatus(ImageConstant.IMAGE_STATUS_PARSING);
                     imageMapper.updateById(image);
-                    continue;
-                }
+                    processThumbInstance(new File(image.getImagePath()), image);
+                    if (image.getStatus().equals(ImageConstant.IMAGE_STATUS_PARSE_FAIL)) {
+                        imageMapper.updateById(image);
+                        // 移动文件到失败目录
+                        moveFile2Failed(image);
+                        log.warn("切片缩略图解析失败，不在执行下游流程, image: {}", image);
+                        imageLogAudit(image);
+                        return;
+                    }
+                    image.setStatus(ImageConstant.IMAGE_STATUS_TILE_PROCESSING);
+                    imageMapper.updateById(image);
+
+                    // 缩略图生成完成，提交切片任务到队列中异步处理
+                    submitTileTask(image);
+                }, OPEN_SLIDE_TASK_EXECUTOR);
             }
             // 等待所有任务完成
             CompletableFuture.allOf(futures).join();
@@ -309,15 +311,15 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
     /**
      * 提交切片任务到异步处理队列
+     *
      * @param image
      */
-    private void submitTileTask(Image image) {
-        CompletableFuture.runAsync(() -> {
+    private CompletableFuture submitTileTask(Image image) {
+        return CompletableFuture.runAsync(() -> {
             try {
                 String out_path = localFilePath + File.separator + ImageUtils.getOrgIdFormat(image.getOrganizationId()) + File.separator + image.getImageId() + File.separator + "TileGroup0";
                 log.info("开始调用python脚本处理切片：image: {}, 切片输出路径：{}", image, out_path);
                 callPython(image.getImagePath(), out_path);
-
                 // 更新状态为启用
                 image.setStatus(ImageConstant.IMAGE_STATUS_ENABLE);
                 image.setUpdateTime(new Date());
@@ -328,12 +330,15 @@ public class OpenSlideServiceImpl implements OpenSlideService {
                 image.setUpdateTime(new Date());
                 imageMapper.updateById(image);
                 log.error("调用python脚本失败，image：{}，异常信息：{}", image, e.getMessage());
+            } finally {
+                imageLogAudit(image);
             }
         }, PYTHON_TASK_EXECUTOR);
     }
 
     /**
      * 单独处理切片任务（解耦后的切片处理方法）
+     *
      * @param images
      * @throws Exception
      */
@@ -386,6 +391,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
 
     /**
      * 移动文件到失败目录
+     *
      * @param image
      */
     private void moveFile2Failed(Image image) {
@@ -467,5 +473,83 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         }
         log.info("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
     }
+
+    @Resource
+    private RestTemplate restTemplate;
+
+    private static final String IMAGE_LOG_AUDIT_URL = "http://staitech-fr/image/addLog";
+    private static final Long MODULE_ID = 2L;
+    private static final Long PAGE_ID = 57L;
+    private static final String OPERATION_TYPE = "新增";
+    private static final String OPERATION_TYPE_EN = "add";
+
+    private void imageLogAudit(Image image) {
+        ImageLogDetailReq request = ImageLogDetailReq.builder()
+                .imageId(image.getImageId())
+                .imageName(image.getImageName())
+                .size(image.getSize())
+                .createTime(image.getCreateTime())
+                .status(Integer.valueOf(image.getStatus()))
+                .organizationId(image.getOrganizationId())
+                .analyzeStatus(image.getAnalyzeStatus())
+                .build();
+
+        LogAuditParams logAuditParams = new LogAuditParams();
+
+        // 创建字段映射器
+        List<FieldMapperReq> fieldMappers = createFieldMappers();
+
+        // 创建操作对象
+        List<OperationObjectReq> operationObjects = new ArrayList<>();
+        OperationObjectReq operationObject = new OperationObjectReq();
+        operationObject.setField("imageName");
+        operationObject.setName("Image Name");
+        operationObject.setValue(image.getImageName());
+        operationObject.setNameEn("图像编号");
+        operationObject.setValueEn(image.getImageName());
+        operationObjects.add(operationObject);
+
+        logAuditParams.setModuleId(MODULE_ID);
+        logAuditParams.setPageId(PAGE_ID);
+        logAuditParams.setFieldMappers(fieldMappers);
+        logAuditParams.setOperationObjects(operationObjects);
+        logAuditParams.setOperationType(OPERATION_TYPE);
+        logAuditParams.setOperationTypeEn(OPERATION_TYPE_EN);
+        request.setLogAuditParams(logAuditParams);
+
+        // 使用 RestTemplate 或 WebClient 调用
+        try {
+            String url = IMAGE_LOG_AUDIT_URL;
+            R response = restTemplate.postForObject(url, request, R.class);
+            log.info("图像日志审计请求成功，返回结果: {}", response != null ? "success" : "null");
+        } catch (Exception e) {
+            log.error("图像日志审计请求失败，imageId: {}", image.getImageId(), e);
+        }
+    }
+
+    private List<FieldMapperReq> createFieldMappers() {
+        List<FieldMapperReq> fieldMappers = new ArrayList<>();
+
+        String[][] fieldMappings = {
+                {"topicName", "专题号","Study ID"},
+                {"imageName", "切片编号","Image Name"},
+                {"size", "图像大小","File Size"},
+                {"organizationId", "机构","Institution"},
+                {"createTime", "上传时间","Upload Time"},
+                {"status", "状态","Status"},
+                {"analyzeStatus", "信息解析状态","Information parsing status"}
+        };
+
+        for (String[] mapping : fieldMappings) {
+            FieldMapperReq fieldMapper = new FieldMapperReq();
+            fieldMapper.setField(mapping[0]);
+            fieldMapper.setFieldName(mapping[1]);
+            fieldMapper.setFieldNameEn(mapping[2]);
+            fieldMappers.add(fieldMapper);
+        }
+
+        return fieldMappers;
+    }
+
 
 }
