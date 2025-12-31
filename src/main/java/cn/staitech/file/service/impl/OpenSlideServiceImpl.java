@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.openslide.OpenSlide;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -474,6 +475,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         log.info("Python script executed successfully: exit code=[{}] imagePath={}, tileDir={}", exitCode, imagePath, tileDir);
     }
 
+    @LoadBalanced  // 关键注解，启用负载均衡
     @Resource
     private RestTemplate restTemplate;
 
