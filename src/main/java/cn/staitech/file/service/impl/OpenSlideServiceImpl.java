@@ -10,6 +10,7 @@ import cn.staitech.file.service.OpenSlideService;
 import cn.staitech.file.util.ImageUtils;
 import cn.staitech.file.vo.ImageConversionsionResp;
 import cn.staitech.file.vo.image.ImageLogDetailReq;
+import cn.staitech.sft.logaudit.annotation.IdField;
 import cn.staitech.sft.logaudit.req.FieldMapperReq;
 import cn.staitech.sft.logaudit.req.LogAuditParams;
 import cn.staitech.sft.logaudit.req.OperationObjectReq;
@@ -482,8 +483,6 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     private static final String IMAGE_LOG_AUDIT_URL = "http://staitech-fr/image/addLog";
     private static final Long MODULE_ID = 2L;
     private static final Long PAGE_ID = 57L;
-    private static final String OPERATION_TYPE = "新增";
-    private static final String OPERATION_TYPE_EN = "add";
 
     private void imageLogAudit(Image image) {
         ImageLogDetailReq request = ImageLogDetailReq.builder()
@@ -504,19 +503,24 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         // 创建操作对象
         List<OperationObjectReq> operationObjects = new ArrayList<>();
         OperationObjectReq operationObject = new OperationObjectReq();
-        operationObject.setField("imageName");
-        operationObject.setName("图像信息");
-        operationObject.setValue("图像系统编号："+image.getImageId()+"("+image.getImageName()+")");
-        operationObject.setNameEn("Image Info");
-        operationObject.setValueEn("Image System Name："+image.getImageId()+"("+image.getImageName()+")");
+        operationObject.setName("图像系统编号");
+        operationObject.setValue(image.getImageId()+image.getImageName());
+        operationObject.setNameEn("Image System ID");
+        operationObject.setValueEn(image.getImageId()+image.getImageName());
         operationObjects.add(operationObject);
-
+        OperationObjectReq operationObject1 = new OperationObjectReq();
+        operationObject1.setName("图像名称");
+        operationObject1.setValue(image.getImageId()+image.getImageName());
+        operationObject1.setNameEn("Image Name");
+        operationObject1.setValueEn(image.getImageId()+image.getImageName());
+        operationObjects.add(operationObject1);
         logAuditParams.setModuleId(MODULE_ID);
         logAuditParams.setPageId(PAGE_ID);
         logAuditParams.setFieldMappers(fieldMappers);
         logAuditParams.setOperationObjects(operationObjects);
-        logAuditParams.setOperationType(OPERATION_TYPE);
-        logAuditParams.setOperationTypeEn(OPERATION_TYPE_EN);
+        logAuditParams.setOperationTypeId(15);
+        logAuditParams.setLogType(1);
+
         request.setLogAuditParams(logAuditParams);
 
         // 使用 RestTemplate 或 WebClient 调用
