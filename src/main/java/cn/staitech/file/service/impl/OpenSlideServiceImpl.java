@@ -487,6 +487,7 @@ public class OpenSlideServiceImpl implements OpenSlideService {
     private void imageLogAudit(Image image) {
         ImageLogDetailReq request = ImageLogDetailReq.builder()
                 .imageId(image.getImageId())
+                .topicName(image.getTopicName())
                 .imageName(image.getImageName())
                 .size(image.getSize())
                 .createTime(image.getCreateTime())
@@ -504,9 +505,9 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         List<OperationObjectReq> operationObjects = new ArrayList<>();
         OperationObjectReq operationObject = new OperationObjectReq();
         operationObject.setName("图像系统编号");
-        operationObject.setValue(image.getImageId()+image.getImageName());
+        operationObject.setValue(String.valueOf(image.getImageId()));
         operationObject.setNameEn("Image System ID");
-        operationObject.setValueEn(image.getImageId()+image.getImageName());
+        operationObject.setValueEn(String.valueOf(image.getImageId()));
         operationObjects.add(operationObject);
         OperationObjectReq operationObject1 = new OperationObjectReq();
         operationObject1.setName("图像名称");
