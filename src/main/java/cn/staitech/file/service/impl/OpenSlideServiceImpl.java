@@ -511,9 +511,9 @@ public class OpenSlideServiceImpl implements OpenSlideService {
         operationObjects.add(operationObject);
         OperationObjectReq operationObject1 = new OperationObjectReq();
         operationObject1.setName("图像名称");
-        operationObject1.setValue(image.getImageId()+image.getImageName());
+        operationObject1.setValue(image.getImageName());
         operationObject1.setNameEn("Image Name");
-        operationObject1.setValueEn(image.getImageId()+image.getImageName());
+        operationObject1.setValueEn(image.getImageName());
         operationObjects.add(operationObject1);
         logAuditParams.setModuleId(MODULE_ID);
         logAuditParams.setPageId(PAGE_ID);
