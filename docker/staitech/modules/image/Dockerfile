@@ -1,10 +1,12 @@
 # 基础镜像
-FROM  swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/openjdk:8-jre
+FROM  openjdk:8-jre
 # author
 MAINTAINER staitech
 
 # 安装 Python
-RUN apt-get update && \
+RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y python3 python3-pip && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     apt-get clean && \
