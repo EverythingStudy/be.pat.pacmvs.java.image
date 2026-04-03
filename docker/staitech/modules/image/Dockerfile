@@ -4,8 +4,8 @@ FROM  openjdk:8-jre
 MAINTAINER staitech
 
 # 安装 Python
-RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
-    sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
+    sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y python3 python3-pip && \
     ln -s /usr/bin/python3 /usr/bin/python && \
